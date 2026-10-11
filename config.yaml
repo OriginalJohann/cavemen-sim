@@ -1,0 +1,74 @@
+# ============================================================
+# Central configuration for the cavemen simulation.
+# All limits, thresholds and LLM endpoints are parameterized here.
+# ============================================================
+simulation:
+  max_agents_per_world: 10     # hard cap of cavemen per world
+  tick_rate_hz: 5              # logical ticks per second (GUI pacing)
+  ticks_per_day: 24            # sim-hours per day (tick = one sim-hour)
+  days_per_year: 36         # compressed ice-age calendar (sim-days per sim-year)
+worlds:
+  save_dir: ~/cavemen_welten   # directory for the world slots
+  max_worlds: 3                # at most three worlds can be stored
+  gather:                      # berry bushes (food without hunting)
+    berry_count: 14            # number of berry bushes per world
+    max_amount: 6              # berries per bush (max. harvestable amount)
+    regrow_ticks: 48           # every N ticks each bush grows by +1 up to its cap
+    gather_yield_hunger: 8.0   # satiety gained from one harvested berry
+    flat_gather_bonus: 2.0     # smaller fallback bonus on grass/forest without berries
+  size:
+    tiles_w: 48
+    tiles_h: 36
+agents:
+  age:                        # thresholds in sim-years (ticks_per_day * days_per_year ticks per year)
+    child_until_years: 5      # below this -> child stage (no repro)
+    elderly_from_year: 40     # vitals degrade strongly from here on
+    death_age_limit: 70       # oldest possible age
+  vitals:
+    hp_max: 100
+    stamina_max: 100
+    hunger_max: 100           # value counts DOWN; low = hungry
+    starvation_below: 20      # below this, HP drains
+  reproduction:
+    min_adult_years: 12       # both partners must be within the window
+    max_adult_years: 38
+    cooldown_months_after_birth: 6   # partner pause after a birth
+  prompts:
+    init_max_chars: 100       # hard limit for individual agent prompts
+    adapt_cooldown_ticks: 24  # re-adapt prompt every N ticks (max. still capped)
+  conversation:               # agent chatter displayed as speech bubbles (transient UI state)
+    enabled: true
+    max_dist_tiles: 4         # speak only within this Manhattan distance
+    chance_per_tick: 0.25     # probability of a new speech per tick
+    speech_cooldown_ticks: 36 # min silence between two speeches per agent
+    bubble_ticks: 16          # how long the speech bubble stays visible
+    use_llm: false            # model-generated lines need an online endpoint; default deterministic
+    max_chars: 60             # hard limit for one dialogue line
+llm:
+  base_url: http://127.0.0.1:1234/v1   # LM-Studio default; any OpenAI-compatible API
+  api_key: ""                         # empty -> no auth header sent
+  model: local-model                 # model id exposed by the server
+  timeout_s: 8
+  max_retries: 2
+  max_tokens: 300
+  decision_cooldown_ticks: 6      # an agent asks the LLM only every N ticks
+weather:
+  states:
+    cold:     { weight: 3, stamina_drain: 1.5, hunger_gain: 1.2 }
+    mild:     { weight: 4, stamina_drain: 1.0, hunger_gain: 1.0 }
+    hot:      { weight: 2, stamina_drain: 1.8, hunger_gain: 1.6 }
+    rain:     { weight: 3, stamina_drain: 1.4, hunger_gain: 1.0 }
+    storm:    { weight: 1, stamina_drain: 2.5, hunger_gain: 1.8 }
+  min_ticks_per_state: 20
+animals:
+  max_alive: 26
+  spawn_radius_min_from_cave_tiles: 4   # min distance from cave entrance at spawn
+  types:
+    mammut:     { weight: 3, speed: 0.2, aggro_chance: 0.05, hunt_damage: 8,  size: 2 }
+    hoehlenbaer: { weight: 3, speed: 0.25, aggro_chance: 0.15, hunt_damage: 12, size: 2 }
+    wolf:       { weight: 4, speed: 0.45, aggro_chance: 0.30, hunt_damage: 6,  size: 1 }
+    triceratops: {weight: 2, speed: 0.3, aggro_chance: 0.10, hunt_damage: 18, size: 3 }  # dinosaur (procedural)
+GUI:
+  window_w: 960
+  window_h: 540
+  tile_px: 16
