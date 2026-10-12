@@ -10,6 +10,21 @@
     pkgs = nixpkgs.legacyPackages.x86_64-linux;
     py = (pkgs.python3).withPackages (p: [ p.pygame p.pyyaml ]);
 
+    # Flake app schema only allows a store path in `program` (no shell string, no args key), so build a tiny
+    # executable launcher derivation; trailing CLI args of "nix run" are forwarded to the app.
+    launcher = pkgs.stdenv.mkDerivation {
+      name = "cavmen-launcher";
+      dontUnpack = true;
+      installPhase = ''
+        mkdir -p "$out/bin"
+        cat > "$out/bin/cavemen" <<'EOS'
+#!/bin/sh
+exec ${py}/bin/python3 -m cavemen "$@"
+EOS
+        chmod 0755 "$out/bin/cavemen"
+      '';
+    };
+
   in {
     # Expose the Python env so "nix shell ." and "nix shell .#cavemen" work out of the box;
     # apps.cavemen keeps working for "nix run .#cavemen".
@@ -17,7 +32,7 @@
     devShells.x86_64-linux.default = pkgs.mkShell { packages = [ py ]; };
     apps.x86_64-linux.cavemen = {
       type = "app";
-      command = "${py}/bin/python3 -m cavemen";
+      program = "${launcher}/bin/cavemen";
     };
   };
 }

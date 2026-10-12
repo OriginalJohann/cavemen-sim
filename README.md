@@ -55,9 +55,12 @@ python -m cavemen            # aus dem Repo-Root ausführen; config.yaml wird vo
 ### NixOS
 
 ```bash
-nix shell .          # interaktive Umgebungs-Shell
-nix run .#cavemen    # direkt die Simulation starten
+nix shell .                     # interaktive Umgebungs-Shell
+nix run .#cavemen               # direkt die Simulation starten (GUI-Default)
+nix run .#cavemen -- --headless 300   # CLI-Args an die App weitergeben ("--"-Trenner nötig!)
 ```
+
+Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-Paket werden von dort geladen.
 
 ## Kommandozeilen-Optionen (`python -m cavemen`)
 
