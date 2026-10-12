@@ -6,7 +6,7 @@ directly into `agent.prompt`, so changes are part of the world state and ride
 along with autosaves. The hard cap (`agents.prompts.init_max_chars`) is applied
 per keystroke via clip(); ESC or ENTER closes the editor and resumes the sim.
 
-Keys: arrows/WASD move between agents, plain typing edits the active agent's
+Keys: arrows move between agents, plain typing edits the active agent's
 prompt, BACKSPACE deletes a character, ENTER/ESC close (changes are already
 live by then).
 """
@@ -68,9 +68,9 @@ class PromptEditor:
         if key in (pygame.K_ESCAPE, pygame.K_RETURN):
             return {"kind": "close"}
         rows_n = max(1, len(self.rows))
-        if key in (pygame.K_UP, pygame.K_w):
+        if key == pygame.K_UP:
             self.r = (self.r - 1) % rows_n
-        elif key in (pygame.K_DOWN, pygame.K_s):
+        elif key == pygame.K_DOWN:
             self.r = (self.r + 1) % rows_n
         elif key == pygame.K_BACKSPACE:
             self._backspace()
@@ -86,7 +86,7 @@ class PromptEditor:
         title = font_title.render("Edit prompts live (key E)", True, TEXT_COLOR)
         screen.blit(title, (20, 14))
         hint = font_item.render(
-            "Arrows/WASD: pick agent | Type/Backspace: edit prompt | ENTER/ESC: back",
+            "Arrows: pick agent | Type/Backspace: edit prompt | ENTER/ESC: back",
             True, DIM_COLOR)
         screen.blit(hint, (20, 60))
         y = 104

@@ -8,7 +8,7 @@ enforced at confirmation time only: name <= 8 chars, age clamped into
 [child_until_years, death_age_limit], prompt clipped to init_max_chars -
 typing itself never truncates mid-word.
 
-Keys: arrows/WASD move between fields, TAB steps through all fields in reading
+Keys: arrows move between fields, TAB steps through all fields in reading
 order, +/- change the tribe size while the count field is active, plain typing
 edits the active field, ENTER confirms and starts the sim, ESC returns to menu.
 """
@@ -114,16 +114,16 @@ class WorldSetup:
         if key == pygame.K_ESCAPE:
             return {"kind": "cancel", "slot": self.slot}
         rows_n = self.count + 2
-        if key in (pygame.K_UP, pygame.K_w):
+        if key == pygame.K_UP:
             self.r = (self.r - 1) % rows_n
-        elif key in (pygame.K_DOWN, pygame.K_s):
+        elif key == pygame.K_DOWN:
             self.r = (self.r + 1) % rows_n
         else:
             n_cols = len(self._row_fields(self.r))
-            if key in (pygame.K_LEFT, pygame.K_a):
+            if key == pygame.K_LEFT:
                 self.c = (self.c - 1) % n_cols
                 return None
-            elif key in (pygame.K_RIGHT, pygame.K_d):
+            elif key == pygame.K_RIGHT:
                 self.c = (self.c + 1) % n_cols
                 return None
         # keep the column valid for single-field rows after vertical moves
@@ -195,7 +195,7 @@ class WorldSetup:
         t = font_title.render(title, True, TEXT_COLOR)
         screen.blit(t, ((screen.get_width() - t.get_width()) // 2, TITLE_Y))
         hint = font_item.render(
-            "Arrows/WASD= move | TAB= next field | +/-= count | "
+            "Arrows= move | TAB= next field | +/-= count | "
             "ENTER=start | ESC=back", True, DIM_COLOR)
         screen.blit(hint, (ROW_X, HINT_Y))
         for r, fields in enumerate(self._all_rows()):

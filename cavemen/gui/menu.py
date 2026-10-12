@@ -50,9 +50,9 @@ class MenuState:
         """Handle keys/mouse; returns the selected action or None."""
         if event.type == pygame.KEYDOWN:
             key = event.key
-            if key in (pygame.K_UP, pygame.K_w):
+            if key == pygame.K_UP:
                 self.cursor = (self.cursor - 1) % len(self.items)
-            elif key in (pygame.K_DOWN, pygame.K_s):
+            elif key == pygame.K_DOWN:
                 self.cursor = (self.cursor + 1) % len(self.items)
             elif key == pygame.K_ESCAPE:
                 return {"kind": "quit", "slot": None}
