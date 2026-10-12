@@ -211,4 +211,51 @@ die Welt speichern und ins Hauptmenü zurückkehren, oder Prompts bearbeiten (al
       Start auf import-level rot. Fix: korrekt nach `cavemen.gui...`. Da die Shell-Namespace-
       Name-Lookups auf alten Inodes weiterhin ENOENT liefern, lief der Lauf über eine frische
       Byte-identische Kopie in `./tmp/run` mit neu angelegtem `./tmp/venv` (Nix-Python 3.14.7 +
-      pygame-ce 2.5.8 via Store-pip). Commit nach Nutzer-Bestätigung ausstehend; danach tmp/-Cleanup.
+      pygame-ce 2.5.8 via Store-pip). Committet als `ad2c766` (12.10.2026); tmp/-Cleanup steht mit P7.4 noch aus.
+
+## 11. Phase 13 – Konversationen: Info-Austausch über Nahrungsquellen (angefordert am 12.10.2026, noch nicht implementiert)
+Quelle: Nutzer-Ergänzung in INSTRUCTIONS.md §3 ("Konversationen"): "Sie sollen sich gegenseitig
+darüber informieren, wo es Nahrungsquellen gibt." (Tippfehler 'ifnromieren' wurde beim P12-Commit
+korrigiert.) Ziel: Sprechblasen enthalten echte Orts-Infos zu den vorhandenen Beerenbüschen statt nur
+allgemeiner Floskeln; deterministisch und offline-sicher wie der Rest der Konversations-Logik.
+Ist-Analyse (Stand 12.10.2026): `simulation/conversations.py` kennt drei Pools (_GENERIC_, _HUNGRY_ mit
+vager "berries around here!", _WEATHER_), Zeilen werden über einen pro-Tick seeded RNG (`{seed}-chat-{tick}`)
+gezogen; LLM-Option via `LLMClient.conversation_line(speaker, listener)` (Strict-JSON). Welt hält die
+Büsche in `world.berry_tiles: {(x, y): menge > 0}` (~14 Büsche aus `worlds.gather.berry_count`); Fischen/P8.5
+ist eine zweite potenzielle Nahrungsquelle für künftige Zeilen.
+- [ ] P13.1 Design festlegen: neue Zeilenvorlagen mit Richtungs-/Entfernungsangabe ("dort vorne im Wald,
+      {listener}, Beeren!"), Auswahl des nächsten Busches (Manhattan) im konfigurierbaren Radius
+      `agents.conversation.food_radius_tiles` (Default vorschlagen, z. B. 24; kein Busch im Radius →
+      Fallback auf bestehende Pools); Trigger-Bedingung skizzieren (z. B. Hunger-Schwelle + Chance, via
+      chat_rng deterministisch).
+- [ ] P13.2 Implementierung in `conversations.py`: `_food_hint(...)` + Pool-Erweiterung; Config-Key in
+      `config.yaml` + Defaults (`cavemen/config.py`) spiegelnd wie die übrigen `agents.conversation.*`.
+- [ ] P13.3 Optionaler LLM-Pfad: bei `use_llm=true` dem Prompt der `conversation_line` den Hinweis mit dem
+      nächsten Busch (Relativposition) als Kontext übergeben – Strict-JSON-Vertrag und Fallback bleiben
+      unverändert.
+- [ ] P13.4 Tests: Unit-Tests für Food-Hint-Zeilen (richtige Richtung/Busch-Auswahl, Determinismus je Seed,
+      Radius-Einhaltung, Fallback ohne Busch); Suite grün; Headless-A/B-Lauf wie bei Phase 10: keine
+      Änderung des Survival-Verhaltens (Sprechblasen sind reine Anzeige).
+- [ ] P13.5 Doku (STRUCTURE.md + Plan), Commit nach Nutzer-Bestätigung.
+
+**Status Phase 13:** Angefordert, noch offen – Implementierung bewusst nicht begonnen (Nutzer-Anweisung
+12.10.2026: erst nach Phase-12-Commit).
+
+## 12. Phase 14 – Weltinfos-Panel links neben dem Canvas (angefordert am 12.10.2026, noch nicht implementiert)
+Anforderung: "Die Anzeige der Weltinformationen soll links neben dem Canvas platziert werden, in dem die
+Welt angezeigt wird, um Lesbarkeit zu steigern." Ist-Analyse: aktuell zeichnen `gui/hud.py::draw_top_bar`
+(eine einzelne Zeile oben über/durch das Canvas: Tag/Wetter/Stamm/Tiere/Fische/Beeren) und `draw_panel`
+(das Agenten-Panel) in die Bildfläche; Fenster-Geometrie kommt aus `gui/app.py`.
+- [ ] P14.1 Layout-Design: feste linke Spalte (z. B. 260–300 px) außerhalb des Welt-Renders für die
+      Weltinfos, zeilenweise statt als einzelne kompakte Zeile (bessere Lesbarkeit); Canvas-Offset in
+      `renderer.py`/`app.py` entsprechend verschieben und Fensterbreite anpassen; Agenten-Panel bleibt
+      rechts unten im Viewport, es sei denn, du möchtest es ebenfalls links – Entscheidung bei P14.1.
+- [ ] P14.2 Implementierung: `gui/hud.py` (neue/separierte `draw_side_panel` + Umzug der Top-Bar-Inhalte),
+      Geometrie in `gui/app.py`, Renderer-Koordinatenversatz; Kamera-Follow und Bubble-Sprites bleiben
+      unverändert relativ zum Welt-Viewport.
+- [ ] P14.3 Verifikation: Unit-/Smoke-Test für die Layout-Fakten (Spalten-Breiten, keine Überlappung mit
+      dem Canvas), GUI-Smoke über den Dummy-Video-Treiber (Menü → Setup → Sim → ESC-Pause → QUIT); Suite
+      grün; Doku (README-Tasten/Ansicht + STRUCTURE.md) aktualisieren.
+- [ ] P14.4 Commit nach Nutzer-Bestätigung.
+
+**Status Phase 14:** Angefordert, noch offen – keine Implementierung begonnen.
