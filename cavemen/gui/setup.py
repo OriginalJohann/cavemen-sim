@@ -29,7 +29,7 @@ ROW_X, ROW_H, ROW_GAP = 40, 26, 5
 ROW_Y0 = 108
 # four input columns as (x offset from ROW_X, width), in reading order
 COLS = ((0, 230), (240, 90), (370, 70), (450, 490))
-FIELDS = (("name", "Name"), ("gender", "Geschlecht"), ("age", "Alter"),
+FIELDS = (("name", "Name"), ("gender", "Gender"), ("age", "Age"),
          ("prompt", "Prompt"))
 
 
@@ -85,8 +85,8 @@ class WorldSetup:
         y = ROW_Y0 + r * (ROW_H + ROW_GAP)
         if r == 0 or r > self.count:         # count row / start row: single field
             return [{"key": "count" if r == 0 else "start",
-                     "label": "Anzahl" if r == 0 else "Starten",
-                     "text": str(self.count) if r == 0 else "> Stamm gruenden",
+                     "label": "Count" if r == 0 else "Start",
+                     "text": str(self.count) if r == 0 else "> Create tribe",
                      "rect": pygame.Rect(ROW_X, y, COLS[3][1], ROW_H)}]
         fields = []
         for c, (key, label) in enumerate(FIELDS):
@@ -192,8 +192,8 @@ class WorldSetup:
         t = font_title.render(title, True, TEXT_COLOR)
         screen.blit(t, ((screen.get_width() - t.get_width()) // 2, TITLE_Y))
         hint = font_item.render(
-            "Pfeile/WASD= bewegen | TAB= naechstes Feld | +/-= Anzahl | "
-            "ENTER=Starten | ESC=zurueck", True, DIM_COLOR)
+            "Arrows/WASD= move | TAB= next field | +/-= count | "
+            "ENTER=start | ESC=back", True, DIM_COLOR)
         screen.blit(hint, (ROW_X, HINT_Y))
         for r, fields in enumerate(self._all_rows()):
             for c, field in enumerate(fields):

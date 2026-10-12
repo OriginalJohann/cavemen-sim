@@ -44,6 +44,10 @@ agents:
     bubble_ticks: 16          # how long the speech bubble stays visible
     use_llm: false            # model-generated lines need an online endpoint; default deterministic
     max_chars: 60             # hard limit for one dialogue line
+  fishing:                   # fishing as an extra food source at water tiles
+    chance_per_try: 0.6       # probability of a successful catch per attempt
+    hunger_restore: 8.0       # satiety gained by one successful catch
+    cooldown_ticks: 12        # min ticks between two attempts (per agent)
 llm:
   base_url: http://127.0.0.1:1234/v1   # LM-Studio default; any OpenAI-compatible API
   api_key: ""                         # empty -> no auth header sent
@@ -68,6 +72,7 @@ animals:
     hoehlenbaer: { weight: 3, speed: 0.25, aggro_chance: 0.15, hunt_damage: 12, size: 2 }
     wolf:       { weight: 4, speed: 0.45, aggro_chance: 0.30, hunt_damage: 6,  size: 1 }
     triceratops: {weight: 2, speed: 0.3, aggro_chance: 0.10, hunt_damage: 18, size: 3 }  # dinosaur (procedural)
+    fish:        { weight: 2, speed: 0.6, aggro_chance: 0.0, hunt_damage: 4,  size: 1 }   # aquatic prey drifting in the lake
 GUI:
   window_w: 960
   window_h: 540

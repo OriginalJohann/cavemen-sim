@@ -15,22 +15,22 @@ from ..agents.prompts import clip
 
 # short caveman-flavoured one-liners; {listener} gets the addressee's name
 _GENERIC_LINES = [
-    "Ugh, was machst du da, {listener}?",
-    "Höhr, {listener}! Die Sonne steht hoch.",
-    "{listener}, wir teilen den Beutefund gleich.",
-    "Gutes Wetter für die Jagd, meinst du auch, {listener}?",
+    "Ugh, what are you doing there, {listener}?"
+    "Hey, {listener}! The sun is high."
+    "We will share the kill soon, {listener}."
+    "Good hunting weather, don't you think so, {listener}?"
 ]
 _HUNGRY_LINES = [
-    "Mein Magen knurrt... Beeren sind da!",
-    "Zuerst essen, dann reden, {listener}.",
-    "{listener}, gib mir deine Beeren. Einmalig.",
-    "Hunger! Und du siehst auch blass aus, {listener}.",
+    "My belly rumbles... berries around here!"
+    "Eat first, talk later, {listener}."
+    "{listener}, hand me your berries. Just once."
+    "Starving! And you look pale too, {listener}."
 ]
 _WEATHER_LINES = {
-    "cold":  ["Kalt! Die Höhle ist warm, komm rein, {listener}."],
-    "hot":   ["Heiß wie die Sonne. Wasser wäre gut, {listener}."],
-    "rain":  ["Regen... nasse Felle sind schlecht, {listener}."],
-    "storm": ["Sturm! Besser drinnen bleiben, {listener}."],
+    "cold":  ["Cold! The cave is warm, come in, {listener}."],
+    "hot":   ["Hot like the sun. Water would be nice, {listener}."],
+    "rain":  ["Rain... wet furs are no good, {listener}."],
+    "storm": ["Storm! Better stay inside, {listener}."]
 }
 
 
@@ -71,7 +71,7 @@ def try_conversation(world, llm=None):
              and int(world.tick) - int(l.bubble_start_tick) >= cooldown]
     if not pairs:
         return None
-    speaker, listener = world.rng.choice(pairs)   # deterministic per seed
+    speaker, listener = chat_rng.choice(pairs)   # deterministic per seed
     max_chars = int(cfg.get("agents.conversation.max_chars", 60))
     text = None
     if llm is not None and bool(cfg.get("agents.conversation.use_llm", False)):
@@ -80,7 +80,7 @@ def try_conversation(world, llm=None):
         except Exception:
             text = None
     if not text:
-        text = _deterministic_line(world.rng, speaker, listener,
+        text = _deterministic_line(chat_rng, speaker, listener,
                                    str(world.weather.get("state", "")))
     speaker.current_bubble = clip(text, max_chars)
     speaker.bubble_start_tick = int(world.tick)

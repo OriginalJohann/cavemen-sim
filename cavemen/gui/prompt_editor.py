@@ -83,10 +83,10 @@ class PromptEditor:
     def draw(self, screen, font_title, font_item) -> None:
         w, h = screen.get_width(), screen.get_height()
         screen.fill(BG_COLOR)
-        title = font_title.render("Prompts zur Laufzeit bearbeiten", True, TEXT_COLOR)
+        title = font_title.render("Edit prompts live (key E)", True, TEXT_COLOR)
         screen.blit(title, (20, 14))
         hint = font_item.render(
-            "Pfeile/WASD: Agent waehlen | Tippen/Backspace: Prompt bearbeitet | ENTER/ESC: zurueck",
+            "Arrows/WASD: pick agent | Type/Backspace: edit prompt | ENTER/ESC: back",
             True, DIM_COLOR)
         screen.blit(hint, (20, 60))
         y = 104
@@ -96,7 +96,7 @@ class PromptEditor:
             screen.blit(name_s, (20, y + 2))
             prompt_x = 160
             max_w = max(40, w - prompt_x - 20)
-            lines = _wrap(font_item, agent.prompt or "(leer)", max_w)
+            lines = _wrap(font_item, agent.prompt or "(empty)", max_w)
             line_h = font_item.get_linesize()
             block_h = len(lines) * line_h + 4
             if active:

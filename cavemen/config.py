@@ -47,6 +47,11 @@ DEFAULTS = {
             "use_llm": False,
             "max_chars": 60,
         },
+        "fishing": {           # extra food source: fishing at lake shores
+            "chance_per_try": 0.6,    # probability of a successful catch per try
+            "hunger_restore": 8.0,    # satiety restored by one successful catch
+            "cooldown_ticks": 12,     # min ticks between attempts (per agent)
+        },
     },
     "llm": {
         "base_url": "http://127.0.0.1:1234/v1",

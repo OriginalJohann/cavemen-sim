@@ -9,11 +9,11 @@ import json
 import re
 import urllib.request
 
-ACTIONS = {"move", "hunt", "gather", "rest"}
+ACTIONS = {"move", "hunt", "gather", "rest", "fish"}
 SYSTEM_PROMPT = (
     'You steer one caveman in a top-down survival simulation. '
-    'Reply with STRICT JSON only: {"action": "move|hunt|gather|rest", '
-    '"dx": -1/0/1, "dy": -1/0/1}. Hunt animals for food, gather near forest, '
+    'Reply with STRICT JSON only: {"action": "move|hunt|gather|rest|fish", '
+    '"dx": -1/0/1, "dy": -1/0/1}. Fish at the lake shore when hungry; hunt and gather nearby. '
     "rest to recover stamina." )
 
 
@@ -136,7 +136,7 @@ class LLMClient:
         user = (
             f"{speaker.name} says something to {listener.name}. "
             f"Hunger {int(speaker.hunger)}%, age {int(speaker.age_years(self.cfg))} years.\n"
-            'Reply with STRICT JSON only: {"line": string, max 60 chars, in German, '
+            'Reply with STRICT JSON only: {"line": string, max 60 chars, in English, '
             "one short caveman-flavoured sentence."
         )
         parsed = self._post([

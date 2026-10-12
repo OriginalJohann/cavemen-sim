@@ -31,6 +31,8 @@ class Agent:
         self.story: list[tuple[int, str]] = []   # persistent life story (day, text)
         self.last_birth_tick = -10 ** 9    # last reproduction tick (cooldown)
         self.last_berry_gather_tick = -10 ** 9  # throttles "gathered berries" story events
+        self.last_fish_tick = -10 ** 9       # last successful fishing catch (cooldown)
+        self.last_fish_story_tick = -10 ** 9   # throttles "caught a fish" story events
         # Transient speech-bubble state; deliberately NOT serialized with saves:
         # bubbles are UI-only and expire after a few ticks.
         self.current_bubble = ""           # bubble text shown above the agent
@@ -61,6 +63,8 @@ class Agent:
             "story": [[d, t] for d, t in self.story],
             "last_birth_tick": self.last_birth_tick,
             "last_berry_gather_tick": int(self.last_berry_gather_tick),
+            "last_fish_tick": int(self.last_fish_tick),
+            "last_fish_story_tick": int(self.last_fish_story_tick),
         }
 
     @classmethod
@@ -75,4 +79,6 @@ class Agent:
         agent.story = [(int(d), str(t)) for d, t in data.get("story", [])]
         agent.last_birth_tick = int(data.get("last_birth_tick", -10 ** 9))
         agent.last_berry_gather_tick = int(data.get("last_berry_gather_tick", -10 ** 9))
+        agent.last_fish_tick = int(data.get("last_fish_tick", -10 ** 9))
+        agent.last_fish_story_tick = int(data.get("last_fish_story_tick", -10 ** 9))
         return agent

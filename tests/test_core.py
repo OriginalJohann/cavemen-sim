@@ -22,6 +22,8 @@ from cavemen.simulation.rules import _reproduce, _regrow_berries, _step_agent   
 from cavemen.simulation.conversations import try_conversation                  # noqa: E402
 from cavemen.gui.prompt_editor import PromptEditor                            # noqa: E402
 from cavemen.world.generation import World         # noqa: E402
+from cavemen.animals.animals import spawn_animal            # noqa: E402
+from cavemen.world.generation import WATER, FOREST           # noqa: E402
 from cavemen.world import save_load                # noqa: E402
 
 
@@ -105,7 +107,7 @@ class CoreTests(unittest.TestCase):
         sim = Simulation.new_world(self.cfg, slot=0, name="t3", llm_enabled=False)
         for agent in list(sim.world.agents)[:3]:
             act = fallback_action(agent, sim.world)
-            self.assertIn(act["action"], ("move", "hunt", "gather", "rest"))
+            self.assertIn(act["action"], ("move", "hunt", "gather", "rest", "fish"))
             self.assertTrue(-1 <= act["dx"] <= 1 and -1 <= act["dy"] <= 1)
 
     # ---- reproduction rules ----------------------------------------------------
@@ -303,6 +305,69 @@ class CoreTests(unittest.TestCase):
         ed._backspace()
         self.assertEqual(agent.prompt, before[:-1])     # deletions apply immediately
 
+
+
+
+class FishingTests(unittest.TestCase):
+    """New aquatic food source: fish spawning, drift/flee and the fishing action."""
+
+    def setUp(self) -> None:
+        self.cfg = base_config()
+
+    def test_fish_spawn_only_inside_lake(self):
+        world = World(self.cfg, seed=11)
+        rng = random.Random(42)
+        for _ in range(200):
+            fish = spawn_animal(world, rng)
+            if fish is not None and fish.kind == "fish":
+                self.assertEqual(world.tile(fish.x, fish.y), WATER)   # aquatic: lake only
+                return
+        self.fail("no fish spawned within 200 tries (seeded!)")
+
+    def test_fish_stay_in_lake_and_never_attack(self):
+        world = World(self.cfg, seed=12)
+        rng = random.Random(5)
+        for _ in range(200):
+            candidate = spawn_animal(world, rng)
+            if candidate is not None and candidate.kind == "fish":
+                break
+        else:
+            self.fail("no fish spawned within 200 tries (seeded!)")
+        # One agent nearby so the flee logic gets exercised as well.
+        watcher = Agent(90, "Watcher", "m", min(candidate.x + 2, world.w - 1),
+                        min(candidate.y + 2, world.h - 1))
+        world.agents.append(watcher)
+        for i in range(60):
+            candidate.step(world, random.Random(i))   # any seeded rng works per tick
+            self.assertEqual(world.tile(candidate.x, candidate.y), WATER)   # fish never leave the lake
+
+    def test_fallback_chooses_fishing_when_hungry_and_no_gather_targets(self):
+        world = World(self.cfg, seed=3)   # probe-verified open shore without forest nearby: (37, 32)
+        world.berry_tiles.clear()         # no berries -> the gather fallback also finds nothing
+        agent = Agent(91, "Angler", "m", 37, 32)
+        agent.hunger = 78.0   # in [75, 80): skips the hunting branch but is still hungry enough
+        act = fallback_action(agent, world)
+        self.assertEqual(act["action"], "fish")
+        self.assertEqual((act["dx"], act["dy"]), (0, 0))
+
+    def test_fishing_restores_hunger_and_has_cooldown(self):
+        from cavemen.simulation.rules import HUNGER_DELTA, _step_agent
+        world = World(self.cfg, seed=3)   # same probe-verified shore tile as above
+        agent = Agent(92, "Tackle", "m", 37, 32)
+        agent.hunger = 50.0
+        agent.last_fish_tick = world.tick - 100      # cooldown already expired -> attempt allowed
+        eff = {"stamina_drain": 1.0, "hunger_gain": 1.0}
+        agent.planned_action = {"action": "fish", "dx": 0, "dy": 0}
+        # Forced catch: the roll is seeded below the configured 60% success chance.
+        world.rng.random = lambda: 0.5
+        _step_agent(agent, world, eff)
+        expected = (50.0 + HUNGER_DELTA["fish"]
+                    + float(self.cfg.get("agents.fishing.hunger_restore", 8.0)))
+        self.assertAlmostEqual(agent.hunger, expected, places=3)
+        # Cooldown: an immediate second attempt cannot fish again in the same tick.
+        before = agent.hunger
+        _step_agent(agent, world, eff)
+        self.assertAlmostEqual(agent.hunger, before + HUNGER_DELTA["fish"], places=3)
 
 if __name__ == "__main__":
     unittest.main()

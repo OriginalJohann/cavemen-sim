@@ -33,14 +33,14 @@ class MenuState:
         for slot in range(1, max_worlds + 1):
             if slot in slots:
                 meta = slots[slot]
-                label = f"Load World {slot} ({meta['name']}, Tag {meta['tick']})"
+                label = f"Load World {slot} ({meta['name']}, Tick {meta['tick']})"
                 self.items.append((label, {"kind": "load", "slot": slot}))
-                overwrite = f"Ueberschreiben Slot {slot} (explizit)"
+                overwrite = f"Overwrite slot {slot} (explicit)"
                 self.items.append((overwrite, {"kind": "overwrite", "slot": slot}))
             else:
-                self.items.append((f"Neue Welt in Slot {slot}",
+                self.items.append((f"New world in slot {slot}",
                                    {"kind": "new", "slot": slot}))
-        self.items.append(("Beenden", {"kind": "quit", "slot": None}))
+        self.items.append(("Quit", {"kind": "quit", "slot": None}))
 
     def item_rect(self, index: int) -> pygame.Rect:
         return pygame.Rect(ITEM_X, ITEM_START_Y + index * LINE_H, ITEM_W, LINE_H - 4)
@@ -70,7 +70,7 @@ class MenuState:
         screen.fill(BG_COLOR)
         title = font_title.render("CAVMEN", True, TEXT_COLOR)
         screen.blit(title, ((screen.get_width() - title.get_width()) // 2, TITLE_Y))
-        hint = font_item.render("> Welt waehlen (Pfeile, ENTER=Starten, ESC=Beenden)", True, (150, 145, 135))
+        hint = font_item.render("Choose a world (arrows, ENTER=start, ESC=back)", True, (150, 145, 135))
         screen.blit(hint, (ITEM_X, ITEM_START_Y - LINE_H))
         for i, (label, _action) in enumerate(self.items):
             rect = self.item_rect(i)

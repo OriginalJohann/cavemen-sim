@@ -24,7 +24,7 @@ simulation/
 │                          tick()-Lauf, headless-Runner, Snapshots
 └── rules.py               Deterministische Tick-Regeln: Hunger/Stamina/HP,
                            Bewegung, Jagd/Treffer, Wettereffekte, Alterung,
-                           Tod/Nachwuchs (Stamm ≤ max_agents), Tier-Bestockung
+                           Tod/Nachwuchs (Stamm ≤ max_agents), Tier-Bestockung, Fisch-Action am Ufer (agents.fishing.*)
 └── conversations.py       Agenten-Konversation (Sprechblasen): deterministische Dialog-Pools via
                            seeded world-rng, optional LLM-Zeilen, Distanz/Cooldown/Bubble-Dauer
                            via `agents.conversation.*` in config.yaml
@@ -40,7 +40,7 @@ agents/
                            Prompts (ebenfalls längenbegrenzt)
 animals/
 ├── animals.py             Prozedurale Tiere/Saurier (Mammut, Höhlenbär, Wolf,
-│                          Triceratops): Wanderung/Flucht/Gegnerangriffe via Regeln
+                            Triceratops, Fisch): Wanderung/Flucht/Gegnerangriffe; Fisch driftet im See und flieht vor Agenten
 └── weather.py             Wetter- und Tageszyklus mit Effektfaktoren
 llm/
 ├── client.py              OpenAI-kompatibler /chat/completions-Client (urllib),
@@ -48,7 +48,7 @@ llm/
 │                          Offline-Latch (_offline)
 └── fallback.py            Deterministische Agenten-Entscheidung ohne LLM:
                            Ruhe bei Erschöpfung+Satt, Jagd auf Beute in Radius,
-                           sonst Bewegung zu Nahrung/Schutz
+                            Fisch am Seeufer wenn hungrig ohne Beerenziel, sonst Weg zur Nahrungs-/Sicherheitsquelle
 gui/
 ├── app.py                 App-Loop: Zustände Menü → Setup (nur bei neuer/überschriebener Welt)
 │                          → Sim; Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave
@@ -60,7 +60,7 @@ gui/
 ├── menu.py                Menü Welt-Auswahl (neue/laden/überschreiben; ENTER=bestätigen)
 ├── renderer.py            Top-Down-Pixelart-Rendering: Tiles inkl. Beeren-Punkte, Tiere,
 │                          Agenten, Sprechblasen über sprechenden Agenten, Kamera-Follow
-└── hud.py                 HUD: Welt-Leiste (inkl. "Beeren") + Agent-Panel
+└── hud.py                 HUD: Welt-Leiste (inkl. Beeren/Fisch) + Agent-Panel
 ```
 
 ## Laufzeit-Pfade
@@ -83,7 +83,7 @@ gui/
 zum Prozess-CWD). Kernschalter: `simulation.max_agents` (Stammgröße ≤ 10),
 `animals.types.*.speed/aggro_chance/hunt_damage`, `llm.base_url/model/timeout_s/
 max_retries/max_tokens`, `worlds.gather.*` (Beerensäume: max_menge/ertrag/regrow_ticks),
-`agents.conversation.*` (Sprechblasen: Distanz/Cooldown/Bubble-Dauer/use_llm),
+`agents.conversation.*` (Sprechblasen: Distanz/Cooldown/Bubble-Dauer/use_llm), agents.fishing.* (Fischfang am Seeufer: Chance/Ertrag/Cooldown),
 `worlds.save_dir/max_worlds`, `gui.sim.llm`. Alle
 Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.
 
@@ -91,7 +91,7 @@ Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.
 - `tests/test_core.py` – unittest-Suite (Welt-Erzeugung, Save/Load-Roundtrip,
   Regeln/Stabilität headless, Beerensammeln (Ernte/Nachwuchs/Determinismus),
   Roster-Spawn (Phase 9), Konversationen/Sprechblasen + Laufzeit-Prompt-Editor (Phase 10),
-  LLM-Client-Fallback). Aufruf:
+  LLM-Client-Fallback, Fishing-Suite (Spawn/Drift/Fallback-Entscheidung/Hunger-Wiederherstellung/Cooldown)). Aufruf:
   `python -m unittest discover -s tests`.
 - NixOS: `flake.nix` + `shell.nix` liefern Python+SDL-Umgebung;
   `install.sh` prüft → richtet ein → startet (robust, nicht interaktiv).

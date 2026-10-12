@@ -5,7 +5,7 @@ even completely offline. The logic is deliberately simple rule prioritisation:
 stamina recovery, hunting nearest prey, gathering near forest, going home.
 """
 from ..agents.prompts import pick_character
-from ..world.generation import FOREST
+from ..world.generation import FOREST, WATER
 
 
 def _step_toward(x: int, y: int, tx: int, ty: int):
@@ -64,6 +64,28 @@ def fallback_action(agent, world) -> dict:
                 return {"action": "gather", "dx": 0, "dy": 0}
             dx, dy = _step_toward(agent.x, agent.y, *target)
             return {"action": "move", "dx": dx, "dy": dy}
+        # 3b) hungry but no berry target: fish at a lake shore. Kept BELOW gathering so
+        #     berry bushes stay the priority food source (preserves fallback tests).
+        if agent.hunger < 80.0:
+            shore = None
+            best = 10 ** 9
+            for y in range(max(0, agent.y - 12), min(world.h, agent.y + 13)):
+                for x in range(max(0, agent.x - 12), min(world.w, agent.x + 13)):
+                    if not world.walkable(x, y):
+                        continue
+                    touching_water = any(
+                        world.in_bounds(x + dx, y + dy) and world.tile(x + dx, y + dy) == WATER
+                        for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+                    if not touching_water:
+                        continue
+                    dist = abs(x - agent.x) + abs(y - agent.y)
+                    if dist < best:
+                        best, shore = dist, (x, y)
+            if shore is not None:
+                if best <= 1:
+                    return {"action": "fish", "dx": 0, "dy": 0}
+                dx, dy = _step_toward(agent.x, agent.y, *shore)
+                return {"action": "move", "dx": dx, "dy": dy}
     # 4) head back to the cave and rest there
     cx, cy = world.cave_center
     if (agent.x, agent.y) != (cx, cy):

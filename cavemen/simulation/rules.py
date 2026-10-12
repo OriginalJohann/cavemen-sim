@@ -6,10 +6,11 @@ aging, animal behaviour and spawning, deaths, and reproduction of the tribe
 The LLM only decides actions - everything else stays reproducible.
 """
 from ..llm.fallback import fallback_action, fallback_character
+from ..world.generation import WATER
 
 # per-action vitals deltas before weather scaling (negative = drain)
-STAMINA_DELTA = {"rest": 2.5, "move": -1.5, "gather": -0.8, "hunt": -1.2}
-HUNGER_DELTA = {"rest": -0.3, "move": -0.6, "gather": -0.5, "hunt": -0.7}
+STAMINA_DELTA = {"rest": 2.5, "move": -1.5, "gather": -0.8, "hunt": -1.2, "fish": -1.0}
+HUNGER_DELTA = {"rest": -0.3, "move": -0.6, "gather": -0.5, "hunt": -0.7, "fish": -0.5}
 
 
 def _pick_weather(world):
@@ -27,7 +28,6 @@ def _pick_weather(world):
             acc += wt
             if roll <= acc:
                 chosen = (name, wt)
-                break
         w["state"] = chosen[0]
         w["left"] = int(cfg.get("weather.min_ticks_per_state", 20))
     spec = states[w["state"]]
@@ -72,8 +72,24 @@ def _step_agent(agent, world, eff):
                 if animal.hp <= 0:
                     animal.alive = False
                     agent.add_story(day, f"killed a {animal.kind}")
-                break
-    # --- vitals -----------------------------------------------------------
+    if verb == "fish":
+        # Fishing only works from a shore tile touching the lake; every attempt
+        # is one seeded-RNG roll with a per-agent cooldown, restoring satiety.
+        fish_cd = int(cfg.get("agents.fishing.cooldown_ticks", 12))
+        if world.tick - int(agent.last_fish_tick) >= fish_cd:
+            near_water = False
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    tx, ty = agent.x + dx, agent.y + dy
+                    if world.in_bounds(tx, ty) and world.tile(tx, ty) == WATER:
+                        near_water = True
+            if near_water and world.rng.random() < float(cfg.get("agents.fishing.chance_per_try", 0.6)):
+                hunger_bonus += float(cfg.get("agents.fishing.hunger_restore", 8.0))
+                agent.last_fish_tick = world.tick
+                # throttled life-story event so the log stays readable (about one per 24 ticks)
+                if world.tick - int(agent.last_fish_story_tick) >= 24:
+                    agent.add_story(day, "caught a fish")
+                    agent.last_fish_story_tick = world.tick
     stam = STAMINA_DELTA.get(verb, -1.0)
     hungr = HUNGER_DELTA.get(verb, -0.5) + hunger_bonus
     if stam < 0:
@@ -96,7 +112,7 @@ def _adapt_prompt_if_due(agent, world):
     hunger_pct = max(0, min(99, round(agent.hunger)))
     # personal context line: mention the berry bushes where the agent stands when relevant
     berries_here = world.berry_tiles.get((agent.x, agent.y), 0)
-    extra = f"Beeren hier: {berries_here}" if berries_here > 0 else ""
+    extra = f"Berries here: {berries_here}" if berries_here > 0 else ""
     agent.prompt = adapt_prompt(agent.prompt, age_years, hunger_pct,
                                world.weather["state"], cap, extra=extra)
 

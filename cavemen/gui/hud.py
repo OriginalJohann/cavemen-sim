@@ -22,8 +22,9 @@ def draw_top_bar(screen, world, font) -> None:
     alive = sum(1 for a in world.agents if a.alive)
     animals = sum(1 for a in world.animals if a.alive)
     berries = sum(world.berry_tiles.values())   # total harvestable berries left
-    text = (f"Tag {world.day_number()} | Wetter: {world.weather['state']} | "
-            f"Stamm: {alive}/{max_agents} | Tiere: {animals} | Beeren: {berries}")
+    fish = sum(1 for a in world.animals if a.alive and a.kind == "fish")
+    text = (f"Day {world.day_number()} | Weather: {world.weather['state']} | "
+            f"Tribe: {alive}/{max_agents} | Animals: {animals} | Fish: {fish} | Berries: {berries}")
     surface = font.render(text, True, (235, 230, 215))
     screen.blit(surface, (8, 6))
 
@@ -39,7 +40,7 @@ def draw_panel(screen, world, selected_uid, font) -> None:
         if not agent.alive:
             continue
         age_years = int(agent.age_years(world.cfg))
-        line = font.render(f"{agent.name} ({age_years} J.)", True, (235, 230, 215))
+        line = font.render(f"{agent.name} (age {age_years})", True, (235, 230, 215))
         screen.blit(line, (rect.x + 8, y))
         if agent.uid == selected_uid:
             hi = pygame.Rect(rect.x, y - 2, PANEL_W, line.get_height() + 4)
@@ -66,7 +67,7 @@ def draw_panel(screen, world, selected_uid, font) -> None:
         screen.blit(s, (rect.x + 8, y))
         y += s.get_height() + 1
     y += 4
-    title = font.render("Lebensgeschichte:", True, (160, 200, 235))
+    title = font.render("Life story:", True, (160, 200, 235))
     screen.blit(title, (rect.x + 8, y))
     y += title.get_height() + 2
     for day, text in list(selected.story)[-3:]:   # only the latest events fit
