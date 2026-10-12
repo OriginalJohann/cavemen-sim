@@ -5,7 +5,9 @@ so every threshold can be parameterized without touching code. Access via
 dotted keys, e.g. cfg.get("agents.vitals.hp_max").
 """
 import copy
+import json
 import os
+import re
 
 try:
     import yaml
@@ -57,8 +59,9 @@ DEFAULTS = {
         "base_url": "http://127.0.0.1:1234/v1",
         "api_key": "",
         "model": "local-model",
-        "timeout_s": 8,
+        "timeout_s": 30,
         "max_retries": 2,
+        "decisions_per_tick": 1,
         "max_tokens": 300,
         "decision_cooldown_ticks": 6,
     },
@@ -133,3 +136,85 @@ class Config:
                 return default
             node = node[part]
         return node
+
+
+def _yaml_scalar(value) -> str:
+    """Render one scalar value as a YAML-compatible token."""
+    if isinstance(value, bool):                     # must precede the int check (bool subclasses int)
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    return json.dumps(str(value), ensure_ascii=False)   # double-quoted strings are valid YAML
+
+
+def update_config_values(path: str, updates: dict) -> None:
+    """Persist scalar edits of dotted config keys ('llm.model', 'agents.age.child_until_years')
+    inside an existing YAML file **in place**: only the value part of matching lines is
+    rewritten, so every other line (comments, ordering, unknown keys) is preserved verbatim.
+
+    Raises ConfigError when a key cannot be found or the result no longer parses.
+    """
+    if yaml is None:
+        raise ConfigError("pyyaml is required to update config.yaml.")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError as exc:
+        raise ConfigError(f"Could not read {path}: {exc}") from exc
+
+    lines = text.splitlines(keepends=True)
+    # Scan all "name:" lines with an indent stack so dotted keys of ANY depth
+    # ('llm.model' as well as 'agents.age.child_until_years') are addressable.
+    key_lines: dict[str, int] = {}
+    stack: list[tuple[int, str]] = []          # (indent, name) ancestors of the current line
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        m = re.match(r"^( *)([A-Za-z_]\w*):(.*)$", line)
+        if not m:
+            continue                       # continuation lines of flow-style maps etc.
+        indent, name, _rest = len(m.group(1)), m.group(2), m.group(3)
+        while stack and stack[-1][0] >= indent:   # drop ancestors at or below this indent level
+            stack.pop()
+        key_lines[".".join([n for _, n in stack] + [name])] = i
+        stack.append((indent, name))
+
+    new_lines = list(lines)
+    for dotted, value in updates.items():
+        idx = key_lines.get(dotted)
+        if idx is None:
+            raise ConfigError(f"Config key '{dotted}' not found in {path}; please edit it manually.")
+        line = lines[idx]
+        m_sub = re.match(r"^( *)([A-Za-z_]\w*):(.*)$", line)   # generic: works at any indent level
+        rest = (m_sub.group(3) if m_sub else "").rstrip("\n")
+        cm = re.search(r"\s+#", rest)                           # preserve a trailing comment, if any
+        body = rest[cm.end():].strip() if cm else ""            # text after the '#' marker itself (no duplication)
+        comment = f"   # {body}" if cm else ""
+        indent = line[: len(line) - len(line.lstrip())]
+        name = dotted.rsplit(".", 1)[-1]                      # leaf key name (works at any depth)
+        new_lines[idx] = f"{indent}{name}: {_yaml_scalar(value)}{comment}\n"
+
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.writelines(new_lines)
+    except OSError as exc:
+        raise ConfigError(f"Could not write {path}: {exc}") from exc
+
+    # Read-back check so a failed update can never leave behind an unreadable config.
+    try:
+        with open(path, encoding="utf-8") as fh:
+            reloaded = yaml.safe_load(fh)
+    except Exception as exc:   # friendly failure instead of raw traceback
+        raise ConfigError(f"Config file could not be parsed after the update: {exc}") from None
+    if not isinstance(reloaded, dict):
+        raise ConfigError("Config file no longer contains a top-level mapping.")
+    for dotted in updates:
+        node = reloaded
+        for part in dotted.split("."):
+            if not isinstance(node, dict) or part not in node:
+                raise ConfigError(
+                    f"Key '{dotted}' is missing after the update; please check config.yaml manually.")
+            node = node[part]

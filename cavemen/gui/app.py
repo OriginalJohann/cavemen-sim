@@ -5,38 +5,42 @@ members (name, gender, age, individual prompt) for new/overwrite slots;
 "sim" -> run the simulation at the configured tick rate, rendered via renderer
 plus HUD overlay. ESC quits / returns to the menu in setup; F5 saves the current
 world to its slot (autosave every N ticks as well); E opens a modal live prompt
-editor that pauses the sim while open and writes directly into agent prompts.
+editor that pauses the sim while open and writes directly into agent prompts;
+"config" -> global settings overlay opened from the main menu (validated, in-place save to config.yaml).
 All user-facing errors are
 friendly one-liners, never stack traces.
 """
 import pygame
 from . import hud, renderer
+from .config_editor import ConfigEditor
 from .menu import MenuState
 from .prompt_editor import PromptEditor
 from .setup import WorldSetup
+from ..config import Config, update_config_values
 from ..simulation.game_loop import Simulation
 from ..world import save_load
 
 
-def _start_simulation(cfg, kind: str, slot, roster=None) -> tuple:
+def _start_simulation(cfg, kind: str, slot, roster=None, llm_debug=False) -> tuple:
     """Create a Simulation for the menu action (new/overwrite/load).
 
     A non-empty `roster` spawns the manually entered tribe members instead of
     the legacy auto-generated tribe (backwards compatible default: None).
+    `llm_debug` is forwarded from the --debug-llm CLI flag.
     """
     llm_enabled = bool(cfg.get("gui.sim.llm", True))
     if kind == "load":
         world = save_load.load_world(cfg, slot)
-        sim = Simulation(cfg, world=world, llm_enabled=llm_enabled)
+        sim = Simulation(cfg, world=world, llm_enabled=llm_enabled, llm_debug=llm_debug)
         return sim, slot
     # new or explicit overwrite: fresh world written into the chosen slot
     sim = Simulation.new_world(cfg, slot=slot, name=f"world_{slot}",
-                               llm_enabled=llm_enabled, roster=roster)
+                               llm_enabled=llm_enabled, llm_debug=llm_debug, roster=roster)
     save_load.save_world(sim.world, cfg, slot, force=(kind == "overwrite"))
     return sim, slot
 
 
-def run(cfg) -> None:
+def run(cfg, llm_debug: bool = False) -> None:
     pygame.init()
     win_w = int(cfg.get("GUI.window_w", 1120))
     win_h = int(cfg.get("GUI.window_h", 640))
@@ -56,6 +60,7 @@ def run(cfg) -> None:
     slot: int | None = None
     selected_uid: int | None = None
     editor: PromptEditor | None = None   # modal live prompt editor (sim paused while open)
+    cfg_editor: ConfigEditor | None = None   # modal global settings overlay (opened from the main menu)
     clock = pygame.time.Clock()
     tick_acc = 0.0
 
@@ -76,13 +81,32 @@ def run(cfg) -> None:
                     sim, slot, selected_uid = None, None, None
                     setup_state = WorldSetup(cfg, slot_val, kind=kind)
                     state = "setup"
+                elif kind == "config":   # global settings overlay; no world is touched
+                    cfg_editor = ConfigEditor(cfg)
+                    state = "config"
                 else:   # kind == "load"
                     try:
-                        sim, slot = _start_simulation(cfg, kind, slot_val)
+                        sim, slot = _start_simulation(cfg, kind, slot_val, llm_debug=llm_debug)
                         selected_uid = next((a.uid for a in sim.world.agents if a.alive), None)
                         state = "sim"
                     except Exception as exc:  # friendly feedback instead of traceback
                         print(f"Welt konnte nicht gestartet werden: {exc}")
+            elif state == "config":
+                action = cfg_editor.handle_event(event)
+                if not action:
+                    continue
+                if action["kind"] == "cancel":   # abort without saving anything
+                    cfg_editor, state = None, "menu"
+                    menu_state._rebuild()        # refresh slot list on re-entry
+                else:   # validated save -> persist in place (comments survive) and apply live
+                    try:
+                        update_config_values(action["path"], action["updates"])
+                        new_cfg = Config(path=action["path"])   # reload so edits take effect now
+                        cfg, menu_state.cfg, cfg_editor = new_cfg, new_cfg, None
+                        menu_state._rebuild()   # worlds.max_worlds may have changed -> refresh slots
+                        state = "menu"
+                    except Exception as exc:    # stay open with a friendly error for the fix
+                        cfg_editor.error = f"Speichern fehlgeschlagen: {exc}"
             elif state == "setup":
                 result = setup_state.handle_event(event)
                 if not result:
@@ -94,7 +118,7 @@ def run(cfg) -> None:
                 else:
                     try:
                         sim, slot = _start_simulation(cfg, result["kind"], result["slot"],
-                                                     roster=result["roster"])
+                                                     roster=result["roster"], llm_debug=llm_debug)
                         selected_uid = next((a.uid for a in sim.world.agents if a.alive), None)
                         state = "sim"
                     except Exception as exc:     # friendly feedback instead of traceback
@@ -138,6 +162,9 @@ def run(cfg) -> None:
             setup_state.draw(screen, font_title, font_item)
         elif state == "menu":
             menu_state.draw(screen, font_title, font_item)
+        elif state == "config":      # settings overlay on top of the frozen menu frame
+            menu_state.draw(screen, font_title, font_item)
+            cfg_editor.draw(screen, font_title, font_item)
         if editor is not None:       # modal overlay on top of the frozen sim frame
             editor.draw(screen, font_title, font_item)
         pygame.display.flip()

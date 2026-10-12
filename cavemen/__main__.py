@@ -15,6 +15,8 @@ def main(argv=None) -> int:
                         help="run N ticks without GUI and exit (debug/test)")
     parser.add_argument("--no-llm", action="store_true",
                         help="disable the LLM endpoint entirely")
+    parser.add_argument("--debug-llm", action="store_true",
+                        help="print every caveman's raw LLM reply into the terminal (debug mode)")
     args = parser.parse_args(argv)
 
     try:
@@ -26,14 +28,15 @@ def main(argv=None) -> int:
     if args.headless is not None:
         from .simulation.game_loop import Simulation
         sim = Simulation.new_world(cfg, slot=0, name="headless",
-                                   llm_enabled=not args.no_llm)
+                                   llm_enabled=not args.no_llm,
+                                   llm_debug=args.debug_llm)
         for report in sim.run_headless(args.headless):
             print(json.dumps(report))   # plain-ASCII JSON lines per phase
         return 0
 
     try:
         from .gui import app   # lazy: headless mode needs no pygame at all
-        app.run(cfg)
+        app.run(cfg, args.debug_llm)
     except Exception as exc:   # e.g. missing display or pygame installation
         print(f"GUI konnte nicht gestartet werden: {exc}")
         return 1

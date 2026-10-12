@@ -45,7 +45,7 @@ class LLMClient:
         self.url = base
         self.api_key = str(cfg.get("llm.api_key", "") or "")
         self.model = str(cfg.get("llm.model", "local-model"))
-        self.timeout = float(cfg.get("llm.timeout_s", 8))
+        self.timeout = float(cfg.get("llm.timeout_s", 30))
         self.retries = max(0, int(cfg.get("llm.max_retries", 2)))
         # Offline latch: once the endpoint fully fails we never block the
         # simulation again - all further calls return immediately so the sim
@@ -63,17 +63,30 @@ class LLMClient:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        urls = [self.url]
+        # LM-Studio serves its OpenAI-compatible API under /v1/; when the configured
+        # root lacks that prefix, try the /v1 variant automatically before giving up.
+        if "/chat/completions" in self.url and "/v1/" not in self.url:
+            urls.append(self.url.replace("/chat/completions", "/v1/chat/completions"))
         last_error = "unknown"
-        for _ in range(self.retries + 1):
-            try:
-                req = urllib.request.Request(self.url, data=data, headers=headers)
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    body = json.loads(resp.read().decode("utf-8"))
-                content = body["choices"][0]["message"]["content"]
-                return self._extract_json(content)
-            except Exception as exc:  # graceful degradation, never crash the sim
-                last_error = str(exc)
-        print(f"[cavemen] LLM endpoint not reachable ({last_error}); fallback mode active.")
+        self._last_raw_text = ""   # raw LLM reply of this request for --debug-llm printing in run_tick; reset per call
+        for url in urls:
+            for _ in range(max(1, self.retries + 1)):
+                try:
+                    req = urllib.request.Request(url, data=data, headers=headers)
+                    with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                        body = json.loads(resp.read().decode("utf-8"))
+                    content = body["choices"][0]["message"]["content"]
+                    self._last_raw_text = content if isinstance(content, str) else ""   # keep raw reply for --debug-llm output
+                    return self._extract_json(content)
+                except Exception as exc:   # graceful degradation, never crash the sim
+                    last_error = str(exc)
+        if last_error == "'choices'":
+            # server answered but with a non-OpenAI payload -> usually a wrong path prefix
+            print(f"[cavmen] LLM endpoint {urls[0]} answered without 'choices' - check base_url in "
+                  "config.yaml (LM-Studio needs e.g. http://127.0.0.1:1234/v1). Fallback mode active.")
+        else:
+            print(f"[cavmen] LLM endpoint not reachable ({last_error}); fallback mode active.")
         self._offline = True   # latched: subsequent calls skip the network entirely
         return None
 

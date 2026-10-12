@@ -252,15 +252,28 @@ def run_tick(world, llm=None):
     eff = _pick_weather(world)
     _regrow_berries(world)
     cooldown = max(1, int(world.cfg.get("llm.decision_cooldown_ticks", 6)))
+    # Per-tick LLM budget: at most this many network calls per tick. A slow local model would
+    # otherwise stack up pending requests in the provider and block the GUI main loop; agents
+    # whose decision is due but whose budget slot is gone keep their previous plan and ask on
+    # the next tick instead of falling back to the deterministic rules.
+    llm_budget = max(1, int(world.cfg.get("llm.decisions_per_tick", 1)))
+    llm_calls_this_tick = 0
     born = died = 0
     for agent in list(world.agents):
         if not agent.alive:
             continue
-        # LLM decision (with graceful fallback) only every N ticks per agent
-        if world.tick >= int(agent.next_decision_tick):
+        # LLM decision (with graceful fallback) only every N ticks per agent.
+        due = world.tick >= int(agent.next_decision_tick)
+        pacing_deferred = due and llm is not None and llm_calls_this_tick >= llm_budget
+        if due and not pacing_deferred:
             action = None
             if llm is not None:
                 action = llm.decide_action(agent, world)
+                llm_calls_this_tick += 1
+                if getattr(llm, "debug", False):   # --debug-llm flag: per-caveman raw LLM output in the terminal
+                    raw = getattr(llm, "_last_raw_text") or "(no reply from LLM)"
+                    verdict = action if action is not None else "fallback (deterministic rules)"
+                    print(f"[LLM-Debug] {agent.name}: {raw} -> {verdict}")
             if action is None:
                 action = fallback_action(agent, world)   # deterministic offline mode
             agent.planned_action = {"action": action.get("action", "rest"),

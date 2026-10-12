@@ -12,18 +12,23 @@ from .rules import run_tick
 
 
 class Simulation:
-    def __init__(self, cfg, world=None, llm_enabled: bool = True):
+    def __init__(self, cfg, world=None, llm_enabled: bool = True,
+                 llm_debug: bool = False):
         if world is None:
             raise ValueError("Simulation needs a World instance (use new_world()).")
         self.cfg = cfg
         self.world = world
         self.llm = LLMClient(cfg) if llm_enabled else None
+        # --debug-llm flag: run_tick then prints the raw model reply per caveman.
+        if self.llm is not None and llm_debug:
+            self.llm.debug = True
 
     @classmethod
     def new_world(cls, cfg, slot: int = 0, seed=None, name="world",
-                  llm_enabled: bool = True, roster=None) -> "Simulation":
+                  llm_enabled: bool = True, llm_debug=False, roster=None) -> "Simulation":
         from ..world.generation import World
-        sim = cls(cfg, world=World(cfg, seed=seed, name=name), llm_enabled=llm_enabled)
+        sim = cls(cfg, world=World(cfg, seed=seed, name=name), llm_enabled=llm_enabled,
+                  llm_debug=llm_debug)
         # Manual roster (GUI setup screen) takes precedence over the legacy auto-tribe;
         # all fields are user-specified there, so no LLM character queries happen here.
         if roster:
