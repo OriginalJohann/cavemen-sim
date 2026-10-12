@@ -77,7 +77,7 @@ Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-P
 |---|---|
 | ENTER | Auswahl im Welt-Menü / Setup bestätigen, Simulation starten |
 | ESC | Menü verlassen bzw. App beenden |
-| E | Modaler Prompt-Editor während der Sim (Simulation pausiert, Live-Zugriff auf den Agent-Prompt) |
+| ESC | Pause-Menü in der Simulation (pausiert): Weiter / Welt speichern & Hauptmenü / Prompts bearbeiten (modaler Prompt-Editor) |
 | Hauptmenü → „Edit settings" (ENTER = speichern) | Globales Settings-Menü: zentrale `config.yaml`-Werte in der GUI bearbeiten; ESC bricht ab. Der In-Place-Save behält Kommentare und Zeilenreihenfolge bei. |
 | F5 | Manueller World-Save in den aktuellen Slot |
 
@@ -90,5 +90,5 @@ Vertiefte Architektur-Doku: [`STRUCTURE.md`](STRUCTURE.md) · Projektregeln: [`A
 ## Tests
 
 ```bash
-python -m unittest discover -s tests   # 35 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence
+python -m unittest discover -s tests   # 38 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence, Pause-Menü
 ```

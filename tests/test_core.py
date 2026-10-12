@@ -582,5 +582,42 @@ class LLMPacingDebugTests(unittest.TestCase):
         self.assertIn(f"[LLM-Debug] {decided_names[0]}:", out)   # per caveman, with its name
 
 
+from cavemen.gui.pause_menu import PauseMenu   # noqa: E402  (ESC pause overlay actions)
+
+
+class PauseMenuTests(unittest.TestCase):
+    """Pause menu on ESC: navigation wrap-around, action confirmation and resume."""
+
+    @staticmethod
+    def key_event(key):
+        return pygame.event.Event(pygame.KEYDOWN, key=key)
+
+    def test_items_complete_and_navigation_wraps(self):
+        menu = PauseMenu()
+        kinds = [action["kind"] for _label, action in menu.items]
+        self.assertEqual(kinds, ["resume", "save_menu", "prompts"])
+        n = len(menu.items)
+        menu.handle_event(self.key_event(pygame.K_UP))          # wrap from first row to last
+        self.assertEqual(menu.cursor, n - 1)
+        for _ in range(n + 4):                                   # storm across both loop edges
+            direction = pygame.K_DOWN if menu.cursor % 2 == 0 else pygame.K_UP
+            menu.handle_event(self.key_event(direction))
+            self.assertTrue(0 <= menu.cursor < n)
+
+    def test_confirm_and_esc_behaviour(self):
+        menu = PauseMenu()
+        self.assertEqual(menu.handle_event(self.key_event(pygame.K_RETURN)), {"kind": "resume"})
+        menu.handle_event(self.key_event(pygame.K_DOWN))         # move to the save & main-menu row
+        self.assertEqual(menu.handle_event(self.key_event(pygame.K_SPACE)), {"kind": "save_menu"})
+        for _ in range(2):                                       # wrap around to last row (prompts)
+            menu.handle_event(self.key_event(pygame.K_UP))
+        self.assertEqual(menu.handle_event(self.key_event(pygame.K_RETURN)), {"kind": "prompts"})
+        self.assertEqual(menu.handle_event(self.key_event(pygame.K_ESCAPE)), {"kind": "resume"})
+
+    def test_mouse_click_selects_row(self):
+        menu = PauseMenu()
+        rect = menu.item_rect(2)
+        event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(rect.x + 5, rect.y + 5))
+        self.assertEqual(menu.handle_event(event)["kind"], "prompts")
 if __name__ == "__main__":
     unittest.main()

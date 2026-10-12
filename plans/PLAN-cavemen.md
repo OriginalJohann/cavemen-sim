@@ -193,3 +193,22 @@ Ziel: Request-Pile-up beim LM-Studio-Endpunkt vermeiden und rohe LLM-Antworten i
       Output bestätigt: [LLM-Debug]-Zeilen je fälligem Agent im Format "[LLM-Debug] <Name>: <raw> -> <action>",
       Tick-Budget greift live (Kaya tick 1, Grog verschoben auf späteren Tick), "(no reply from LLM)" bei
       nicht laufendem LM-Studio. Danach: Commit nach Nutzer-Bestätigung + tmp/-Cleanup.
+
+## 10. Phase 12 – Pause-Menü (ESC) während der Simulation (12.10.2026)
+Ziel: ESC öffnet in der laufenden Sim ein Pause-Menü; das Ticking wird pausiert. Vom Menü aus:
+die Welt speichern und ins Hauptmenü zurückkehren, oder Prompts bearbeiten (alter Taste-E-Weg entfernt).
+- [x] P12.1 Neues Modul `gui/pause_menu.py` (`PauseMenu`, Tastenkonventionen wie `menu.py`):
+      Weiter / Welt speichern & Hauptmenü / Prompts der Cavemen bearbeiten; ESC=Weiter, ENTER/SPACE/Maus=Bestätigung.
+- [x] P12.2 `gui/app.py`: Escape-Routing ersetzt "ESC beendet die App"; Prompt-Editor nur noch vom
+      Pause-Menü erreichbar (Taste E entfernt); Ticking bei Editor UND Pause-Menü pausiert; speichern &
+      Hauptmenü speichert explizit (SaveError-freundlich) und kehrt zurück inkl. Slotliste-Auffrischung.
+- [x] P12.3 `gui/prompt_editor.py`: Docstring/Titel an den neuen Einstieg angepasst ("key E" entfernt).
+- [x] P12.4 Tests: neue PauseMenuTests (Navigation/Wrap, ENTER/SPACE/Maus, ESC=resume); Suite 35→38.
+      README-Tastentabelle/-Zähler und STRUCTURE.md (Baum + Ablauf) aktualisiert.
+- [x] P12.5 Verifikation: Unit-Suite grün (38 Tests, 0.85 s, Exit 0). WICHTIGER BEFUND:
+      `tests/test_core.py` Zeile 585 enthielt den Tippfehler `from cavmen.gui.pause_menu`
+      (ein 'e' fehlte – Rest des abgebrochenen letzten Jobs); dadurch war die Suite bei jedem
+      Start auf import-level rot. Fix: korrekt nach `cavemen.gui...`. Da die Shell-Namespace-
+      Name-Lookups auf alten Inodes weiterhin ENOENT liefern, lief der Lauf über eine frische
+      Byte-identische Kopie in `./tmp/run` mit neu angelegtem `./tmp/venv` (Nix-Python 3.14.7 +
+      pygame-ce 2.5.8 via Store-pip). Commit nach Nutzer-Bestätigung ausstehend; danach tmp/-Cleanup.

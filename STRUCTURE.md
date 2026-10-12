@@ -60,8 +60,10 @@ gui/
 ├── setup.py               Manuelle Stamms-Erstellung (WorldSetup): 4-Spalten-Formular
 │                          Name/Geschlecht/Alter/Prompt + Anzahl-/Start-Zeile; deterministisch
 │                          vorausgefüllt, harte Grenzen erst bei Bestätigung, Roster an Sim
-├── prompt_editor.py       Modaler Laufzeit-Prompt-Editor (Taste E in der Sim): pausiert die
+├── prompt_editor.py       Modaler Laufzeit-Prompt-Editor (über das Pause-Menü, Taste ESC): pausiert die
 │                          Sim, live-Schreibzugriff auf agent.prompt mit clip()-Hardcap
+├── pause_menu.py          ESC-Pause-Menü während der Simulation (Taste ESC; Sim pausiert)
+│                          Weiter / Welt speichern & Hauptmenü / modaler Prompt-Editor öffnen
 ├── config_editor.py       Modales globales Settings-Menü (Hauptmenü → „Edit settings"):
 │                          15 editierbare Werte (inkl. llm.decisions_per_tick) mit Typ-/Bereichs-/URL-Validierung,
 │                          ENTER=In-Place-Save via update_config_values(), ESC=abbrechen
@@ -76,8 +78,8 @@ gui/
    neue Welt / laden / explizit überschreiben; ENTER=Start, ESC=Beenden); für
    neue/überschriebene Welten dazwischen den Setup-Bildschirm (`gui/setup.py`:
    Name/Geschlecht/Alter/Prompt je Agent vorausgefüllt, ENTER startet die Sim),
-   dann Sim-Schleife mit Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave; Taste E öffnet
-   während der Simulation einen modalen Prompt-Editor (`gui/prompt_editor.py`, Sim pausiert);
+   dann Sim-Schleife mit Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave; ESC öffnet in der Simulation ein Pause-Menü
+   (`gui/pause_menu.py`; Sim pausiert): Weiter / Welt speichern & Hauptmenü / modaler Prompt-Editor (`gui/prompt_editor.py`) für Live-Prompt-Edition;
    Hauptmenü → „Edit settings" öffnet das globale Settings-Menü (`gui/config_editor.py`),
    ENTER speichert In-Place in config.yaml (Kommentare bleiben erhalten), ESC bricht ab;
    Renderer (Kamera folgt dem Stamm) inkl. Sprechblasen über sprechenden Agenten
@@ -100,7 +102,7 @@ Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.
 ## Tests & Entwicklung
 - `tests/test_core.py` – unittest-Suite (Welt-Erzeugung, Save/Load-Roundtrip,
   Regeln/Stabilität headless, Beerensammeln (Ernte/Nachwuchs/Determinismus),
-  Roster-Spawn (Phase 9), Konversationen/Sprechblasen + Laufzeit-Prompt-Editor (Phase 10),
+  Roster-Spawn (Phase 9), Konversationen/Sprechblasen + Laufzeit-Prompt-Editor (Phase 10), Pause-Menü (ESC, Phase 12),
   LLM-Client-Fallback, Fishing-Suite (Spawn/Drift/Fallback-Entscheidung/Hunger-Wiederherstellung/Cooldown)). Aufruf:
   `python -m unittest discover -s tests`.
 - NixOS: `flake.nix` + `shell.nix` liefern Python+SDL-Umgebung;

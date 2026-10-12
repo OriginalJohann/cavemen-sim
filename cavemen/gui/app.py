@@ -3,9 +3,9 @@
 States: "menu" -> choose a world slot; "setup" -> manually enter the tribe
 members (name, gender, age, individual prompt) for new/overwrite slots;
 "sim" -> run the simulation at the configured tick rate, rendered via renderer
-plus HUD overlay. ESC quits / returns to the menu in setup; F5 saves the current
-world to its slot (autosave every N ticks as well); E opens a modal live prompt
-editor that pauses the sim while open and writes directly into agent prompts;
+plus HUD overlay. ESC pauses the simulation and opens a pause menu
+(resume / explicit save + back to the main menu / edit of the cavemen prompts;
+ticking is halted while open); F5 saves the current world to its slot (autosave every N ticks as well);
 "config" -> global settings overlay opened from the main menu (validated, in-place save to config.yaml).
 All user-facing errors are
 friendly one-liners, never stack traces.
@@ -14,6 +14,7 @@ import pygame
 from . import hud, renderer
 from .config_editor import ConfigEditor
 from .menu import MenuState
+from .pause_menu import PauseMenu
 from .prompt_editor import PromptEditor
 from .setup import WorldSetup
 from ..config import Config, update_config_values
@@ -59,6 +60,7 @@ def run(cfg, llm_debug: bool = False) -> None:
     sim: Simulation | None = None
     slot: int | None = None
     selected_uid: int | None = None
+    pause_menu: PauseMenu | None = None   # modal ESC pause menu (ticking halted while open)
     editor: PromptEditor | None = None   # modal live prompt editor (sim paused while open)
     cfg_editor: ConfigEditor | None = None   # modal global settings overlay (opened from the main menu)
     clock = pygame.time.Clock()
@@ -127,21 +129,37 @@ def run(cfg, llm_debug: bool = False) -> None:
                 if editor is not None:   # modal prompt editor: sim paused, keys routed there
                     action = editor.handle_event(event)
                     if action and action.get("kind") == "close":
-                        editor = None     # resume the simulation below
+                        editor = None     # back to the pause menu (sim stays paused)
                         tick_acc = 0.0    # no burst of caught-up ticks on close
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_e:
-                    editor = PromptEditor(sim.world, cfg)   # live prompt editing (INSTRUCTIONS §3)
-                    tick_acc = 0.0       # pause the ticking while the editor is open
+                elif pause_menu is not None:   # pause overlay: sim paused, keys routed there
+                    action = pause_menu.handle_event(event)
+                    if action and action.get("kind") == "resume":
+                        pause_menu = None     # resume the simulation below
+                        tick_acc = 0.0        # no burst of caught-up ticks on resume
+                    elif action and action.get("kind") == "save_menu":
+                        try:      # explicit save before returning to the main menu
+                            path = save_load.save_world(sim.world, cfg, slot, force=True)
+                            print(f"Gespeichert unter {path}")
+                        except save_load.SaveError as exc:
+                            print(str(exc))
+                        sim, slot, selected_uid = None, None, None
+                        editor, pause_menu = None, None
+                        menu_state._rebuild()   # refresh the slot list on re-entry
+                        state = "menu"
+                    elif action and action.get("kind") == "prompts":
+                        editor = PromptEditor(sim.world, cfg)   # live prompt editing (INSTRUCTIONS §3)
+                        tick_acc = 0.0        # sim stays paused while the prompts are edited
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    return
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_f and editor is None:
+                    pause_menu = PauseMenu()   # ESC opens the pause menu; ticking halts below
+                    tick_acc = 0.0
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_f and editor is None and pause_menu is None:
                     try:   # manual save (F5)
                         path = save_load.save_world(sim.world, cfg, slot, force=True)
                         print(f"Gespeichert unter {path}")
                     except save_load.SaveError as exc:
                         print(str(exc))
         tick_acc += clock.tick() / 1000.0
-        if state == "sim" and editor is None:    # paused while the prompt editor is open
+        if state == "sim" and editor is None and pause_menu is None:   # paused while overlays are open
             while tick_acc >= 1.0 / tick_rate_hz:   # pace simulation ticks
                 sim.tick()
                 tick_acc -= 1.0 / tick_rate_hz
@@ -165,6 +183,8 @@ def run(cfg, llm_debug: bool = False) -> None:
         elif state == "config":      # settings overlay on top of the frozen menu frame
             menu_state.draw(screen, font_title, font_item)
             cfg_editor.draw(screen, font_title, font_item)
-        if editor is not None:       # modal overlay on top of the frozen sim frame
+        if editor is not None:       # prompt overlay on top of the frozen sim frame
             editor.draw(screen, font_title, font_item)
+        elif pause_menu is not None:   # full-screen pause menu over the frozen sim frame
+            pause_menu.draw(screen, font_title, font_item)
         pygame.display.flip()

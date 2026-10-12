@@ -1,10 +1,10 @@
-"""Modal live prompt editor, opened during the simulation (key E).
+"""Modal live prompt editor, opened from the pause menu while the simulation runs.
 
 INSTRUCTIONS §3 asks that users may adapt individual agent prompts while the
 simulation runs. This overlay pauses the ticking; every keystroke writes
 directly into `agent.prompt`, so changes are part of the world state and ride
 along with autosaves. The hard cap (`agents.prompts.init_max_chars`) is applied
-per keystroke via clip(); ESC or ENTER closes the editor and resumes the sim.
+per keystroke via clip(); ESC or ENTER closes the editor (the simulation is resumed from the pause menu).
 
 Keys: arrows move between agents, plain typing edits the active agent's
 prompt, BACKSPACE deletes a character, ENTER/ESC close (changes are already
@@ -83,7 +83,7 @@ class PromptEditor:
     def draw(self, screen, font_title, font_item) -> None:
         w, h = screen.get_width(), screen.get_height()
         screen.fill(BG_COLOR)
-        title = font_title.render("Edit prompts live (key E)", True, TEXT_COLOR)
+        title = font_title.render("Edit prompts live (back via ESC / ENTER)", True, TEXT_COLOR)
         screen.blit(title, (20, 14))
         hint = font_item.render(
             "Arrows: pick agent | Type/Backspace: edit prompt | ENTER/ESC: back",

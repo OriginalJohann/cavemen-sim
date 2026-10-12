@@ -51,10 +51,10 @@ agents:
 llm:
   base_url: "http://127.0.0.1:1234"   # IP:Port; llm/client.py ergänzt bei LM-Studio-Typen automatisch "/v1" + /chat/completions
   api_key: ""   # empty -> no auth header sent
-  model: "qwen3.8-27b-gsq-rco"   # model id exposed by the server
-  timeout_s: 30.0        # seconds until a decision call times out; local models can need several seconds per answer
+  model: "qwen2.5-3b-instruct"   # model id exposed by the server
+  timeout_s: 30.0   # seconds until a decision call times out; local models can need several seconds per answer
   max_retries: 2
-  decisions_per_tick: 1  # at most this many LLM network calls per tick (prevents request backlog, keeps the main loop responsive)
+  decisions_per_tick: 1   # at most this many LLM network calls per tick (prevents request backlog, keeps the main loop responsive)
   max_tokens: 300
   decision_cooldown_ticks: 6      # an agent asks the LLM only every N ticks
 weather:

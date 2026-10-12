@@ -28,11 +28,11 @@
 * **Initialisierung:** Generierung beim Weltenstart via individuellem Prompt (max. 100 Zeichen, inkl. Name, Alter, Geschlecht, Persönlichkeitsmerkmalen).
 * **Laufzeit-Anpassung:** Dynamische Anpassung des individuellen Agenten-Prompts während der laufenden Simulation. Zusätzlich zur Aktualisierung der Prompts mit Weltinformationen durch die Simulation soll es auch dem Nutzer möglich sein, die Prompts zur Laufzeit anzupassen.
 * **Konfigurierbarkeit:** Beim erstellen einer neuen Welt soll ein Dialog geöffnet werden, in dem man die Anzahl an Höhlenmenschen sowie deren Eigenschaften bestimmen kann. Name, Geschlecht, Alter und Prompt sollen vom Nutzer eingegeben werden können. Eine Vorbefüllung mit randomisierten Vorschlägen für einen Schnellstart ist gewünscht.
-* **Konversationen:** Die Agenten sollen miteinander kommunizieren können. Diese Gespräche sind in Sprechblasen anzuzeigen.
+* **Konversationen:** Die Agenten sollen miteinander kommunizieren können. Diese Gespräche sind in Sprechblasen anzuzeigen. Sie sollen sich gegenseitig darüber informieren, wo es Nahrungsquellen gibt.
 * **Welteigenschaften:** Welteigenschaften, wie Tickrate, LLM-Endpoint oder auch Höhlenmenschenanzahl und Geburtenparameter (Aufzählung nicht endgültig) sollen in einem seperaten Menü, welches vom Startbildschirm aus erreichbar ist, konfigurierbar sein.
 
 ## 4. Grafische Benutzeroberfläche (GUI)
 
 * **Visualisierung:** Echtzeit-Beobachtung der Simulation in einer Top-Down-Ansicht.
-* **Grafikstil:** Pixelgrafik (ähnlich *Core Keeper* – charmanter Retro-Look).
-* **UI & Steuerung:** Hauptmenü beim Start, Anzeige von Agenten-Status (Hunger, HP, Ausdauer, Alter, Prompt, Profil) und Welt-Informationen (Wetter, Tageszeit, Tiere).
+* **Grafikstil:** Pixelgrafik (charmanter Retro-Look).
+* **UI & Steuerung:** Hauptmenü beim Start, Anzeige von Agenten-Status (Hunger, HP, Ausdauer, Alter, Prompt, Profil) und Welt-Informationen (Wetter, Tageszeit, Tiere), Pausenmenü während Simulation pausiert das Spiel, gibt Möglichkeit zur Rückkehr ins Hauptmenü und erlaubt es die Prompts der Cavemen anzupassen.
