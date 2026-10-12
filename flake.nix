@@ -2,14 +2,20 @@
   description = "Cavemen AI simulation";
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/24.11";
 
+  # NOTE: Nix 2.x evaluates flake outputs in pure mode, where `builtins.currentSystem`
+  # is unavailable and the evaluator does not pass a `system` argument (verified by
+  # probe flakes on nix 2.34.8). We therefore target the local platform explicitly;
+  # this dev-only flake only needs to work on x86_64-linux hosts.
   outputs = { self, nixpkgs }: let
-    system = builtins.currentSystem;
-    pkgs = nixpkgs.legacyPackages.${system};
+    pkgs = nixpkgs.legacyPackages.x86_64-linux;
     py = (pkgs.python3).withPackages (p: [ p.pygame p.pyyaml ]);
 
   in {
-    devShells.${system}.default = pkgs.mkShell { packages = [ py ]; };
-    apps.${system}.cavemen = {
+    # Expose the Python env so "nix shell ." and "nix shell .#cavemen" work out of the box;
+    # apps.cavemen keeps working for "nix run .#cavemen".
+    packages.x86_64-linux = { cavemen = py; default = py; };
+    devShells.x86_64-linux.default = pkgs.mkShell { packages = [ py ]; };
+    apps.x86_64-linux.cavemen = {
       type = "app";
       command = "${py}/bin/python3 -m cavemen";
     };
