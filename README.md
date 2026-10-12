@@ -69,6 +69,7 @@ Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-P
 | `--config PATH` | Pfad zur Config (Default: `config.yaml` im Arbeitsverzeichnis) |
 | `--headless TICKS` | Lauft N Ticks ohne GUI und beendet sich; druckt JSON-Reports pro Phase (ideal für Tests/Demos) |
 | `--no-llm` | LLM-Endpoint komplett deaktivieren (nur Fallback-Logik) |
+| `--debug-llm` | Druckt die rohe LLM-Antwort jedes Urzeitmenschen pro Entscheidung im Terminal aus (`[LLM-Debug] Name: Antwort -> Aktion`) – nützlich zum Debuggen von Prompts/Timeouts |
 
 ## Steuerung in der GUI
 
@@ -77,6 +78,7 @@ Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-P
 | ENTER | Auswahl im Welt-Menü / Setup bestätigen, Simulation starten |
 | ESC | Menü verlassen bzw. App beenden |
 | E | Modaler Prompt-Editor während der Sim (Simulation pausiert, Live-Zugriff auf den Agent-Prompt) |
+| Hauptmenü → „Edit settings" (ENTER = speichern) | Globales Settings-Menü: zentrale `config.yaml`-Werte in der GUI bearbeiten; ESC bricht ab. Der In-Place-Save behält Kommentare und Zeilenreihenfolge bei. |
 | F5 | Manueller World-Save in den aktuellen Slot |
 
 ## Konfiguration & weitere Doku
@@ -88,5 +90,5 @@ Vertiefte Architektur-Doku: [`STRUCTURE.md`](STRUCTURE.md) · Projektregeln: [`A
 ## Tests
 
 ```bash
-python -m unittest discover -s tests   # 23 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, LLM-Fallback
+python -m unittest discover -s tests   # 35 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence
 ```

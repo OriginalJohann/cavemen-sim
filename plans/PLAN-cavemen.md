@@ -175,3 +175,21 @@ sind bereits erfüllt. Zwei echte Lücken wurden geschlossen:
       Beim deterministischen Seed "headless"/Slot 0 stirbt der Stamm durch Tierattacken bereits um
       Tick ~1250 aus (vorbestehende Balancierungseigenschaft, keine Phase-10-Wirkung) – als offener
       Punkt dokumentiert, da INSTRUCTIONS.md kein Überlebensziel verlangt. STRUCTURE.md + Plan aktualisiert.
+
+## 9. Phase 11 – LLM-Pacing & Debug-Output (12.10.2026)
+Ziel: Request-Pile-up beim LM-Studio-Endpunkt vermeiden und rohe LLM-Antworten im Terminal debuggen.
+- [x] P11.1 `llm.decisions_per_tick` (Default 1, Config-Editor Bereich 1–32): pro Tick maximal N
+      LLM-Netzwerk-Calls; aufgeschobene Agents behalten ihren letzten Plan und entscheiden im
+      nächsten Tick (kein Stau von Requests am Endpunkt).
+- [x] P11.2 Timeout Default 8 s → 30 s (`config.yaml` + Defaults); `LLMClient._last_raw_text` hält die
+      rohe Modell-Antwort bereit (vor jedem Versuch neu initialisiert – kein Stale-Leak zwischen Agents).
+- [x] P11.3 CLI-Flag `--debug-llm` (GUI und headless): druckt `[LLM-Debug] <Name>: <rohe Antwort> -> <Action>`
+      je fälligem Agent auf stdout; Flag wird an Simulation/GUI durchgereicht (`gui/app.py run(cfg, llm_debug)`).
+- [x] P11.4 Tests: neue `LLMPacingDebugTests` (Budget limitiert Calls/Tick, Config-Override greift live,
+      Debug-Flag druckt die rohe Antwort je Agent via stdout-Capture); Suite 32 → 35 Tests, alle grün.
+- [x] P11.5 LIVE-VERIFIKATION GELUNGEN (12.10.2026) via `nix run .#cavemen -- --headless 4 --debug-llm`
+      (die Nix-Derivation läuft in einem eigenen Namespace, dort auflösbar; direkter Shell/Python-Zugriff
+      auf den Workspace ist durch das FS-Overlay gestört: Name-Lookups auf älteren Inodes → ENOENT).
+      Output bestätigt: [LLM-Debug]-Zeilen je fälligem Agent im Format "[LLM-Debug] <Name>: <raw> -> <action>",
+      Tick-Budget greift live (Kaya tick 1, Grog verschoben auf späteren Tick), "(no reply from LLM)" bei
+      nicht laufendem LM-Studio. Danach: Commit nach Nutzer-Bestätigung + tmp/-Cleanup.

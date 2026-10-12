@@ -15,16 +15,20 @@ fällt auf `llm/fallback.py` zurück – die Simulation crashet nie und blockt n
 ```
 cavemen/
 ├── __init__.py            Paketmarker
-├── __main__.py            Einstieg: CLI (GUI-Default, --headless N, --no-llm)
+├── __main__.py            Einstieg: CLI (GUI-Default, --headless N, --no-llm, --debug-llm)
 ├── config.py              Config-Klasse: config.yaml + eingebauten Defaults
-│                          (wichtige Schwellwerte sind hier dupliziert, damit das
-│                          Spiel auch ohne yaml startet)
+│                          (Schwellwerte dupliziert, damit das Spiel auch ohne yaml startet)
+│                          update_config_values(): In-Place-YAML-Save für Zwei-Level-Keys,
+│                          behält Kommentare/Reihenfolge, Read-back-Check, ConfigError
 simulation/
 ├── game_loop.py           Simulation: Welt-Erzeugung, Stamms-Init (LLM-Charaktere),
 │                          tick()-Lauf, headless-Runner, Snapshots
 └── rules.py               Deterministische Tick-Regeln: Hunger/Stamina/HP,
                            Bewegung, Jagd/Treffer, Wettereffekte, Alterung,
-                           Tod/Nachwuchs (Stamm ≤ max_agents), Tier-Bestockung, Fisch-Action am Ufer (agents.fishing.*)
+                           Tod/Nachwuchs (Stamm ≤ max_agents), Tier-Bestockung, Fisch-Action am Ufer
+                           (agents.fishing.*); LLM-Pacing: max. llm.decisions_per_tick Netzwerk-Calls pro Tick
+                           (aufgeschobene Agents behalten ihren Plan und versuchen es im nächsten Tick);
+                           --debug-llm druckt [LLM-Debug]-Zeilen mit der rohen Antwort je Agent auf stdout
 └── conversations.py       Agenten-Konversation (Sprechblasen): deterministische Dialog-Pools via
                            seeded world-rng, optional LLM-Zeilen, Distanz/Cooldown/Bubble-Dauer
                            via `agents.conversation.*` in config.yaml
@@ -43,9 +47,10 @@ animals/
                             Triceratops, Fisch): Wanderung/Flucht/Gegnerangriffe; Fisch driftet im See und flieht vor Agenten
 └── weather.py             Wetter- und Tageszyklus mit Effektfaktoren
 llm/
-├── client.py              OpenAI-kompatibler /chat/completions-Client (urllib),
-│                          Timeout/Retry, JSON-Validierung der Actions,
-│                          Offline-Latch (_offline)
+├── client.py              OpenAI-kompatibler /chat/completions-Client (urllib), mit
+│                          Auto-Fallback auf `/v1` im base_url (LM-Studio-Quirk); Timeout (30 s Default)/Retry,
+│                          JSON-Validierung der Actions, Offline-Latch (_offline), _last_raw_text hält die
+│                          rohe Modell-Antwort für das [LLM-Debug]-Output bereit
 └── fallback.py            Deterministische Agenten-Entscheidung ohne LLM:
                            Ruhe bei Erschöpfung+Satt, Jagd auf Beute in Radius,
                             Fisch am Seeufer wenn hungrig ohne Beerenziel, sonst Weg zur Nahrungs-/Sicherheitsquelle
@@ -57,6 +62,9 @@ gui/
 │                          vorausgefüllt, harte Grenzen erst bei Bestätigung, Roster an Sim
 ├── prompt_editor.py       Modaler Laufzeit-Prompt-Editor (Taste E in der Sim): pausiert die
 │                          Sim, live-Schreibzugriff auf agent.prompt mit clip()-Hardcap
+├── config_editor.py       Modales globales Settings-Menü (Hauptmenü → „Edit settings"):
+│                          15 editierbare Werte (inkl. llm.decisions_per_tick) mit Typ-/Bereichs-/URL-Validierung,
+│                          ENTER=In-Place-Save via update_config_values(), ESC=abbrechen
 ├── menu.py                Menü Welt-Auswahl (neue/laden/überschreiben; ENTER=bestätigen)
 ├── renderer.py            Top-Down-Pixelart-Rendering: Tiles inkl. Beeren-Punkte, Tiere,
 │                          Agenten, Sprechblasen über sprechenden Agenten, Kamera-Follow
@@ -70,9 +78,11 @@ gui/
    Name/Geschlecht/Alter/Prompt je Agent vorausgefüllt, ENTER startet die Sim),
    dann Sim-Schleife mit Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave; Taste E öffnet
    während der Simulation einen modalen Prompt-Editor (`gui/prompt_editor.py`, Sim pausiert);
+   Hauptmenü → „Edit settings" öffnet das globale Settings-Menü (`gui/config_editor.py`),
+   ENTER speichert In-Place in config.yaml (Kommentare bleiben erhalten), ESC bricht ab;
    Renderer (Kamera folgt dem Stamm) inkl. Sprechblasen über sprechenden Agenten
    (`simulation/conversations.py`) + HUD (Welt-Leiste + Agent-Panel).
-2. **Headless**: `python -m cavemen --headless TICKS [--no-llm]` → periodische
+2. **Headless**: `python -m cavemen --headless TICKS [--no-llm] [--debug-llm]` → periodische
    Snapshot-Zeilen auf stdout (Tests/Demo, kein GUI-Bildschirm nötig).
 3. **LLM-Schleife pro Tick**: für jede fällige Entscheidung ruft die Sim den
    Client ab; ungültige/fehlende Antwort → Fallbackregel. Charakter-Erzeugung
@@ -81,8 +91,8 @@ gui/
 ## Konfiguration
 `config.yaml` im Repo-Root (wird von `cavemen/config.py` gelesen, Pfade relativ
 zum Prozess-CWD). Kernschalter: `simulation.max_agents` (Stammgröße ≤ 10),
-`animals.types.*.speed/aggro_chance/hunt_damage`, `llm.base_url/model/timeout_s/
-max_retries/max_tokens`, `worlds.gather.*` (Beerensäume: max_menge/ertrag/regrow_ticks),
+`animals.types.*.speed/aggro_chance/hunt_damage`, `llm.base_url/model/timeout_s (30 s)/
+max_retries/max_tokens/decisions_per_tick (LLM-Netzwerk-Calls pro Tick)`, `worlds.gather.*` (Beerensäume: max_menge/ertrag/regrow_ticks),
 `agents.conversation.*` (Sprechblasen: Distanz/Cooldown/Bubble-Dauer/use_llm), agents.fishing.* (Fischfang am Seeufer: Chance/Ertrag/Cooldown),
 `worlds.save_dir/max_worlds`, `gui.sim.llm`. Alle
 Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.

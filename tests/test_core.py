@@ -10,6 +10,7 @@ import random
 import shutil
 import tempfile
 import unittest
+import json                                     # noqa: E402  (stub LLM payloads)
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 os.environ["PYTHONPATH"] = REPO   # make 'cavemen' importable in any cwd
@@ -18,13 +19,17 @@ from cavemen.config import ConfigError, Config  # noqa: E402
 from cavemen.llm.client import LLMClient        # noqa: E402
 from cavemen.llm.fallback import fallback_action, fallback_character  # noqa: E402
 from cavemen.simulation.game_loop import Simulation   # noqa: E402
-from cavemen.simulation.rules import _reproduce, _regrow_berries, _step_agent   # noqa: E402
+from cavemen.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent   # noqa: E402
 from cavemen.simulation.conversations import try_conversation                  # noqa: E402
 from cavemen.gui.prompt_editor import PromptEditor                            # noqa: E402
 from cavemen.world.generation import World         # noqa: E402
 from cavemen.animals.animals import spawn_animal            # noqa: E402
 from cavemen.world.generation import WATER, FOREST           # noqa: E402
 from cavemen.world import save_load                # noqa: E402
+import pygame                                      # noqa: E402  (synthetic KEYDOWN events for the GUI screens)
+from cavemen.config import update_config_values    # noqa: E402
+from cavemen.gui.config_editor import ConfigEditor  # noqa: E402
+import http.server                                   # noqa: E402  (stub LLM endpoint for client tests)
 
 
 def base_config() -> dict:
@@ -368,6 +373,214 @@ class FishingTests(unittest.TestCase):
         before = agent.hunger
         _step_agent(agent, world, eff)
         self.assertAlmostEqual(agent.hunger, before + HUNGER_DELTA["fish"], places=3)
+
+class ConfigEditorAndPersistenceTests(unittest.TestCase):
+    """Menu-overlay settings editor plus the in-place YAML persistence function."""
+
+    def setUp(self) -> None:
+        self.dir = tempfile.mkdtemp(prefix="cavemen_cfg_")
+        self.path = os.path.join(self.dir, "config.yaml")
+        shutil.copy(os.path.join(REPO, "config.yaml"), self.path)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    @staticmethod
+    def key_event(key, unicode=None):
+        ev = pygame.event.Event(pygame.KEYDOWN, key=key)
+        if unicode is not None:
+            ev.unicode = unicode   # real pygame KEYDOWN events always carry .unicode
+        return ev
+
+    def _go_to_row(self, editor, dotted_key):
+        idx = [k for k, _ in editor.rows].index(dotted_key)
+        while editor.r != idx:          # K_DOWN steps through rows; navigation wraps safely
+            editor.handle_event(self.key_event(pygame.K_DOWN))
+
+    def test_update_preserves_comments_line_count_and_other_values(self):
+        before = open(self.path, encoding="utf-8").read()
+        update_config_values(self.path, {"llm.max_tokens": 512, "simulation.tick_rate_hz": 7})
+        after = open(self.path, encoding="utf-8").read()
+        self.assertIn("max_tokens: 512", after)
+        # the edited line's own trailing comment must survive verbatim
+        self.assertIn("tick_rate_hz: 7   # logical ticks per second", after)
+        self.assertEqual(before.count("\n"), after.count("\n"))   # no lines added or dropped
+        self.assertNotIn("max_tokens: 300", after)
+        reloaded = Config(self.path)
+        self.assertEqual(reloaded.get("llm.max_tokens"), 512)
+        self.assertEqual(reloaded.get("simulation.tick_rate_hz"), 7)
+
+    def test_update_missing_key_raises_and_leaves_file_untouched(self):
+        with self.assertRaises(ConfigError):
+            update_config_values(self.path, {"no.such.key": 1})
+        self.assertIn("max_tokens: 300", open(self.path, encoding="utf-8").read())
+
+    def test_editor_navigation_wraps_and_never_crashes(self):
+        editor = ConfigEditor(Config(self.path))
+        n_rows = len(editor.rows)
+        for k in (pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d):   # WASD must never move navigation
+            editor.handle_event(self.key_event(k))
+        self.assertEqual(editor.r, 0)
+        for i in range(2 * n_rows + 50):   # storm of arrows across both edges many times over
+            editor.handle_event(self.key_event(pygame.K_DOWN if i % 2 == 0 else pygame.K_UP))
+            self.assertTrue(0 <= editor.r < n_rows)
+
+    def test_editor_valid_save_yields_typed_updates_and_persists(self):
+        cfg = Config(self.path)
+        editor = ConfigEditor(cfg)
+        self._go_to_row(editor, "llm.max_tokens")
+        for _ in range(len(editor.values[editor.r])):
+            editor.handle_event(self.key_event(pygame.K_BACKSPACE))
+        for ch in "512":    # F12 is not otherwise handled by the editor -> pure text input path
+            editor.handle_event(self.key_event(pygame.K_F12, unicode=ch))
+        action = editor.handle_event(self.key_event(pygame.K_RETURN))
+        self.assertEqual(action["kind"], "save")
+        self.assertEqual(action["updates"]["llm.max_tokens"], 512)      # typed int, not str
+        update_config_values(cfg.path, action["updates"])
+        reloaded = Config(cfg.path)
+        self.assertEqual(reloaded.get("llm.max_tokens"), 512)
+
+    def test_editor_rejects_out_of_range_value_and_stays_open(self):
+        editor = ConfigEditor(Config(self.path))
+        original = open(self.path, encoding="utf-8").read()
+        self._go_to_row(editor, "worlds.max_worlds")
+        for _ in range(len(editor.values[editor.r])):
+            editor.handle_event(self.key_event(pygame.K_BACKSPACE))
+        editor.handle_event(self.key_event(pygame.K_F12, unicode="0"))
+        action = editor.handle_event(self.key_event(pygame.K_RETURN))   # ENTER must NOT close
+        self.assertIsNone(action)
+        self.assertTrue(editor.error)
+        self.assertIn("Bereich", editor.error)
+        self.assertEqual(open(self.path, encoding="utf-8").read(), original)
+
+    def test_editor_requires_http_scheme_for_base_url(self):
+        editor = ConfigEditor(Config(self.path))
+        self._go_to_row(editor, "llm.base_url")
+        for _ in range(len(editor.values[editor.r])):
+            editor.handle_event(self.key_event(pygame.K_BACKSPACE))
+        for ch in "localhost:8080/v1":
+            editor.handle_event(self.key_event(pygame.K_F12, unicode=ch))
+        self.assertIsNone(editor.handle_event(self.key_event(pygame.K_RETURN)))
+        self.assertIn("http(s)://", editor.error)
+
+    def test_editor_escal_cancel_returns_without_saving(self):
+        editor = ConfigEditor(Config(self.path))
+        original = open(self.path, encoding="utf-8").read()
+        self.assertEqual(editor.handle_event(self.key_event(pygame.K_ESCAPE)), {"kind": "cancel"})
+        self.assertEqual(open(self.path, encoding="utf-8").read(), original)
+
+
+class LLMClientTests(unittest.TestCase):
+    """Offline-safe behaviour of the OpenAI-compatible client (incl. the LM-Studio /v1 quirk)."""
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            if self.path == "/v1/chat/completions":
+                payload = json.dumps(
+                    {"choices": [{"message": {"content": '{"action": "rest"}'}}]}).encode()
+            else:   # mirrors the LM-Studio log line: unexpected endpoint, still answers with 200
+                payload = json.dumps({"error": "Unexpected endpoint"}).encode()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *_args):       # keep unittest output clean
+            pass
+
+    @staticmethod
+    def _cfg(base_url: str):
+        vals = {"llm.base_url": base_url, "llm.api_key": "", "llm.model": "fake-model",
+                "llm.timeout_s": 5.0, "llm.max_retries": 1, "llm.max_tokens": 32}
+
+        class Cfg:                       # minimal duck-type of cavmen.config.Config.get
+            def get(self, key, default=None):
+                return vals.get(key, default)
+        return Cfg()
+
+    def test_client_recovers_lm_studio_v1_prefix_automatically(self):
+        import threading
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), self._Handler)
+        port = server.server_address[1]
+        # serve_forever must run itself - binding the socket alone accepts but never answers
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            client = LLMClient(self._cfg(f"http://127.0.0.1:{port}"))   # root without /v1, like the user yaml
+            result = client._post([{"role": "user", "content": "ping"}])
+            self.assertEqual(result, {"action": "rest"})        # only the /v1 variant answers validly
+            self.assertFalse(client._offline)
+        finally:
+            server.shutdown()
+
+    def test_client_latches_offline_and_falls_back(self):
+        import socket
+        probe = socket.socket()              # find a port that is guaranteed to be free
+        probe.bind(("127.0.0.1", 0))
+        dead_port = probe.getsockname()[1]
+        probe.close()
+        client = LLMClient(self._cfg(f"http://127.0.0.1:{dead_port}"))
+        self.assertIsNone(client._post([{"role": "user", "content": "ping"}]))
+        self.assertTrue(client._offline)    # later calls must not touch the network at all
+
+
+class LLMPacingDebugTests(unittest.TestCase):
+    """Per-tick LLM budget (llm.decisions_per_tick) and the --debug-llm terminal output."""
+
+    class _StubLLM:
+        def __init__(self, debug=False, reply="RAW-MODEL-REPLY"):
+            self.calls = 0
+            self.debug = debug
+            self._last_raw_text = reply
+
+        def decide_action(self, agent, world):   # duck-typed LLM client (no network access)
+            self.calls += 1
+            return {"action": "hunt", "dx": 1, "dy": 0}
+
+    def _due_sim(self):
+        sim = Simulation.new_world(base_config(), slot=9, name="t5", llm_enabled=False)
+        for agent in sim.world.agents:   # everyone due at the very first tick -> worst case
+            agent.next_decision_tick = 0
+            agent.planned_action = {"action": "rest", "dx": 0, "dy": 0}
+        return sim
+
+    def test_budget_limits_llm_calls_per_tick(self):
+        stub = self._StubLLM()
+        sim = self._due_sim()
+        run_tick(sim.world, stub)   # all agents due at once, budget is 1 in config.yaml
+        cooldown = int(sim.cfg.get("llm.decision_cooldown_ticks", 6))
+        decided_first = sum(1 for a in sim.world.agents if a.next_decision_tick == cooldown)
+        self.assertEqual(decided_first, 1)     # exactly one LLM decision happened this tick
+        rest_plans = sum(1 for a in sim.world.agents if a.planned_action["action"] == "rest")
+        self.assertGreaterEqual(rest_plans, len(sim.world.agents) - 1)   # others kept their plan
+        calls = stub.calls
+        for _ in range(3):               # still due agents rotate: +1 call per tick
+            run_tick(sim.world, stub)
+            self.assertEqual(stub.calls, calls + 1)
+            calls += 1
+
+    def test_budget_from_config_is_honored(self):
+        sim = self._due_sim()
+        sim.cfg.data["llm"]["decisions_per_tick"] = 2   # raise the budget live, like in settings menu
+        stub = self._StubLLM()
+        run_tick(sim.world, stub)
+        self.assertEqual(stub.calls, 2)
+
+    def test_debug_flag_prints_raw_llm_output_per_caveman(self):
+        import contextlib
+        import io
+        sim = self._due_sim()
+        stub = self._StubLLM(debug=True, reply="RAW-DEBUG-TOKEN")
+        buf = io.StringIO()   # capture stdout while the tick runs (debug lines)
+        with contextlib.redirect_stdout(buf):   # capture the per-caveman debug lines on stdout
+            run_tick(sim.world, stub)
+        out = buf.getvalue()
+        cooldown = int(sim.cfg.get("llm.decision_cooldown_ticks", 6))
+        decided_names = [a.name for a in sim.world.agents if a.next_decision_tick == cooldown]
+        self.assertEqual(len(decided_names), 1)
+        self.assertIn("[LLM-Debug]", out)                      # debug line went to stdout
+        self.assertIn("RAW-DEBUG-TOKEN", out)                 # raw model reply is included
+        self.assertIn(f"[LLM-Debug] {decided_names[0]}:", out)   # per caveman, with its name
+
 
 if __name__ == "__main__":
     unittest.main()

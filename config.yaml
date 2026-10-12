@@ -3,13 +3,13 @@
 # All limits, thresholds and LLM endpoints are parameterized here.
 # ============================================================
 simulation:
-  max_agents_per_world: 10     # hard cap of cavemen per world
-  tick_rate_hz: 5              # logical ticks per second (GUI pacing)
+  max_agents_per_world: 5   # hard cap of cavemen per world
+  tick_rate_hz: 5.0   # logical ticks per second (GUI pacing)
   ticks_per_day: 24            # sim-hours per day (tick = one sim-hour)
   days_per_year: 36         # compressed ice-age calendar (sim-days per sim-year)
 worlds:
   save_dir: ~/cavemen_welten   # directory for the world slots
-  max_worlds: 3                # at most three worlds can be stored
+  max_worlds: 3   # at most three worlds can be stored
   gather:                      # berry bushes (food without hunting)
     berry_count: 14            # number of berry bushes per world
     max_amount: 6              # berries per bush (max. harvestable amount)
@@ -21,9 +21,9 @@ worlds:
     tiles_h: 36
 agents:
   age:                        # thresholds in sim-years (ticks_per_day * days_per_year ticks per year)
-    child_until_years: 5      # below this -> child stage (no repro)
+    child_until_years: 5   # below this -> child stage (no repro)
     elderly_from_year: 40     # vitals degrade strongly from here on
-    death_age_limit: 70       # oldest possible age
+    death_age_limit: 70   # oldest possible age
   vitals:
     hp_max: 100
     stamina_max: 100
@@ -34,7 +34,7 @@ agents:
     max_adult_years: 38
     cooldown_months_after_birth: 6   # partner pause after a birth
   prompts:
-    init_max_chars: 100       # hard limit for individual agent prompts
+    init_max_chars: 100   # hard limit for individual agent prompts
     adapt_cooldown_ticks: 24  # re-adapt prompt every N ticks (max. still capped)
   conversation:               # agent chatter displayed as speech bubbles (transient UI state)
     enabled: true
@@ -49,11 +49,12 @@ agents:
     hunger_restore: 8.0       # satiety gained by one successful catch
     cooldown_ticks: 12        # min ticks between two attempts (per agent)
 llm:
-  base_url: http://127.0.0.1:1234/v1   # LM-Studio default; any OpenAI-compatible API
-  api_key: ""                         # empty -> no auth header sent
-  model: local-model                 # model id exposed by the server
-  timeout_s: 8
+  base_url: "http://127.0.0.1:1234"   # IP:Port; llm/client.py ergänzt bei LM-Studio-Typen automatisch "/v1" + /chat/completions
+  api_key: ""   # empty -> no auth header sent
+  model: "qwen3.8-27b-gsq-rco"   # model id exposed by the server
+  timeout_s: 30.0        # seconds until a decision call times out; local models can need several seconds per answer
   max_retries: 2
+  decisions_per_tick: 1  # at most this many LLM network calls per tick (prevents request backlog, keeps the main loop responsive)
   max_tokens: 300
   decision_cooldown_ticks: 6      # an agent asks the LLM only every N ticks
 weather:
