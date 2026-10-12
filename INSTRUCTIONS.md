@@ -20,6 +20,7 @@
 * **Fortpflanzung:** Fällt der Stamm unter 10 Mitglieder, können ein Mann und eine Frau gemeinsam Nachwuchs zeugen (parametrierbare Alters- und Bedingungsschwellwerte).
 * **Essen ohne jagen:** Es soll Möglichkeiten geben an Nahrung zu kommen, ohne zu jagen z.B. Sammeln von Beeren oder Fischen.
 * **Tickraten:** Die Tickrate der Simulation soll konfigurierbar sein so, dass Nutzer mit leistungsstärkeren Systemen eine schnellere Simulation erhalten können.
+* **Observierbarkeit:** Die Anwendung soll per Kommandozeilenargument in einem Modus gestartet werden können, der die Kommunikation mit dem LLM-Endpoint im Terminal darstellen kann.
 
 ## 3. Agenten-Management & Attribute
 
@@ -28,6 +29,7 @@
 * **Laufzeit-Anpassung:** Dynamische Anpassung des individuellen Agenten-Prompts während der laufenden Simulation. Zusätzlich zur Aktualisierung der Prompts mit Weltinformationen durch die Simulation soll es auch dem Nutzer möglich sein, die Prompts zur Laufzeit anzupassen.
 * **Konfigurierbarkeit:** Beim erstellen einer neuen Welt soll ein Dialog geöffnet werden, in dem man die Anzahl an Höhlenmenschen sowie deren Eigenschaften bestimmen kann. Name, Geschlecht, Alter und Prompt sollen vom Nutzer eingegeben werden können. Eine Vorbefüllung mit randomisierten Vorschlägen für einen Schnellstart ist gewünscht.
 * **Konversationen:** Die Agenten sollen miteinander kommunizieren können. Diese Gespräche sind in Sprechblasen anzuzeigen.
+* **Welteigenschaften:** Welteigenschaften, wie Tickrate, LLM-Endpoint oder auch Höhlenmenschenanzahl und Geburtenparameter (Aufzählung nicht endgültig) sollen in einem seperaten Menü, welches vom Startbildschirm aus erreichbar ist, konfigurierbar sein.
 
 ## 4. Grafische Benutzeroberfläche (GUI)
 

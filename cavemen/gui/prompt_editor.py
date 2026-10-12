@@ -75,7 +75,7 @@ class PromptEditor:
         elif key == pygame.K_BACKSPACE:
             self._backspace()
         else:
-            char = event.unicode or ""
+            char = getattr(event, "unicode", None) or ""   # defensive: tolerate events w/o .unicode
             if len(char) == 1 and char.isprintable():
                 self._type_char(char)
         return None

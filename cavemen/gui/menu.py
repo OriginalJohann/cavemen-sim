@@ -40,6 +40,7 @@ class MenuState:
             else:
                 self.items.append((f"New world in slot {slot}",
                                    {"kind": "new", "slot": slot}))
+        self.items.append(("Edit settings", {"kind": "config"}))   # global config editor overlay
         self.items.append(("Quit", {"kind": "quit", "slot": None}))
 
     def item_rect(self, index: int) -> pygame.Rect:

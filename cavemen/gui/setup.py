@@ -143,8 +143,11 @@ class WorldSetup:
         if key == pygame.K_TAB:
             order = [(r_, c_) for r_ in range(rows_n)
                      for c_ in range(len(self._row_fields(r_)))]
-            idx = next(i for i, p in enumerate(order) if p == (self.r, self.c))
-            self.r, self.c = order[(idx + 1) % len(order)]
+            try:
+                idx = next(i for i, p in enumerate(order) if p == (self.r, self.c))
+            except StopIteration:                       # defensive fallback: cursor position is stale
+                idx = 0                                  # wrap around from the first field instead of crashing
+            self.r, self.c = order[(idx + 1) % len(order)]   # wrap-around keeps TAB cycling safe
             return None
         # ---- plain text editing of the active field --------------------------
         ch = event.unicode or ""
