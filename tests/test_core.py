@@ -19,7 +19,7 @@ from cavemen.config import ConfigError, Config  # noqa: E402
 from cavemen.llm.client import LLMClient        # noqa: E402
 from cavemen.llm.fallback import fallback_action, fallback_character  # noqa: E402
 from cavemen.simulation.game_loop import Simulation   # noqa: E402
-from cavemen.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent   # noqa: E402
+from cavemen.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent, _pick_weather   # noqa: E402
 from cavemen.simulation.conversations import try_conversation, _nearest_food_source, _food_hint_line, _direction_from                  # noqa: E402
 from cavemen.gui.prompt_editor import PromptEditor                            # noqa: E402
 from cavemen.world.generation import World         # noqa: E402
@@ -72,6 +72,17 @@ class CoreTests(unittest.TestCase):
         # procedural animals must spawn over time (deterministic seed!)
         alive_animals = len([a for a in final.animals if a.alive])
         self.assertGreater(alive_animals, 0)
+
+    def test_weather_state_machine_cycles_across_states(self):
+        # Regression guard for _pick_weather: the weighted roll must stop at the
+        # selected bucket. Without the break every roll lands on the LAST state in
+        # config order and weather gets permanently stuck there (constant storm).
+        world = World(self.cfg, seed=1)   # pure state machine, no sim side effects
+        seen = set()
+        for _ in range(480):              # ~24 transitions at min_ticks_per_state=20
+            _pick_weather(world)
+            seen.add(world.weather["state"])
+        self.assertGreaterEqual(len(seen), 2)
 
     def test_prompts_stay_within_length_limit(self):
         sim = Simulation.new_world(self.cfg, slot=0, name="t2", llm_enabled=False)

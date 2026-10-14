@@ -28,6 +28,7 @@ def _pick_weather(world):
             acc += wt
             if roll <= acc:
                 chosen = (name, wt)
+                break                     # stop at the selected bucket; without it the last state always wins
         w["state"] = chosen[0]
         w["left"] = int(cfg.get("weather.min_ticks_per_state", 20))
     spec = states[w["state"]]
