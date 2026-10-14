@@ -13,23 +13,27 @@ import unittest
 import json                                     # noqa: E402  (stub LLM payloads)
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-os.environ["PYTHONPATH"] = REPO   # make 'cavemen' importable in any cwd
-from cavemen.agents.agent import Agent          # noqa: E402
-from cavemen.config import ConfigError, Config  # noqa: E402
-from cavemen.llm.client import LLMClient        # noqa: E402
-from cavemen.llm.fallback import fallback_action, fallback_character  # noqa: E402
-from cavemen.simulation.game_loop import Simulation   # noqa: E402
-from cavemen.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent, _pick_weather   # noqa: E402
-from cavemen.simulation.conversations import try_conversation, _nearest_food_source, _food_hint_line, _direction_from                  # noqa: E402
-from cavemen.gui.prompt_editor import PromptEditor                            # noqa: E402
-from cavemen.gui.hud import side_panel_width  # noqa: E402 (Phase 14 sidebar layout)
-from cavemen.world.generation import World         # noqa: E402
-from cavemen.animals.animals import spawn_animal            # noqa: E402
-from cavemen.world.generation import WATER, FOREST           # noqa: E402
-from cavemen.world import save_load                # noqa: E402
+os.environ["PYTHONPATH"] = REPO   # make 'application' importable in any cwd
+from application.agents.agent import Agent          # noqa: E402
+from application.config import ConfigError, Config  # noqa: E402
+from application.llm.client import LLMClient        # noqa: E402
+from application.llm.fallback import fallback_action, fallback_character  # noqa: E402
+from application.simulation.game_loop import Simulation   # noqa: E402
+from application.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent, _pick_weather   # noqa: E402
+from application.simulation.conversations import try_conversation, _nearest_food_source, _food_hint_line, _direction_from                  # noqa: E402
+from application.gui.prompt_editor import PromptEditor                            # noqa: E402
+from application.gui.hud import side_panel_width  # noqa: E402 (Phase 14 sidebar layout)
+from application.world.generation import World         # noqa: E402
+from application.animals.animals import spawn_animal            # noqa: E402
+from application.world.generation import WATER, FOREST           # noqa: E402
+from application.world import save_load                # noqa: E402
 import pygame                                      # noqa: E402  (synthetic KEYDOWN events for the GUI screens)
-from cavemen.config import update_config_values    # noqa: E402
-from cavemen.gui.config_editor import ConfigEditor  # noqa: E402
+from application.config import update_config_values    # noqa: E402
+from application.gui.config_editor import ConfigEditor  # noqa: E402
+from application.gui.setup import WorldSetup, ROW_H, ROW_GAP   # noqa: E402 (Phase 15 scroll geometry)
+from application.gui.hud import _draw_agent_entries, vitals_bar_geometry  # noqa: E402 (Phase 15 overlap fix)
+from types import SimpleNamespace                                    # noqa: E402 (lightweight fakes for Phase 15 tests)
+from unittest import mock as _mock                                   # noqa: E402 (attribute patching; not auto-imported with `import unittest`)
 import http.server                                   # noqa: E402  (stub LLM endpoint for client tests)
 
 
@@ -162,7 +166,7 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(amount, max_amount)
 
     def test_gather_on_bush_depletes_and_yields(self):
-        from cavemen.simulation.rules import HUNGER_DELTA
+        from application.simulation.rules import HUNGER_DELTA
         world = World(self.cfg, seed=3)
         pos = sorted(world.berry_tiles)[0]
         yield_hunger = float(self.cfg.get("worlds.gather.gather_yield_hunger", 8.0))
@@ -456,7 +460,7 @@ class FishingTests(unittest.TestCase):
         self.assertEqual((act["dx"], act["dy"]), (0, 0))
 
     def test_fishing_restores_hunger_and_has_cooldown(self):
-        from cavemen.simulation.rules import HUNGER_DELTA, _step_agent
+        from application.simulation.rules import HUNGER_DELTA, _step_agent
         world = World(self.cfg, seed=3)   # same probe-verified shore tile as above
         agent = Agent(92, "Tackle", "m", 37, 32)
         agent.hunger = 50.0
@@ -682,7 +686,7 @@ class LLMPacingDebugTests(unittest.TestCase):
         self.assertIn(f"[LLM-Debug] {decided_names[0]}:", out)   # per caveman, with its name
 
 
-from cavemen.gui.pause_menu import PauseMenu   # noqa: E402  (ESC pause overlay actions)
+from application.gui.pause_menu import PauseMenu   # noqa: E402  (ESC pause overlay actions)
 
 
 class PauseMenuTests(unittest.TestCase):
@@ -737,10 +741,195 @@ class SidePanelLayoutTests(unittest.TestCase):
 
     def test_canvas_never_below_minimum_width(self):
         # Phase 14: canvas region must keep >= 80 px even in small windows.
-        from cavemen.gui.hud import side_panel_width as sw
+        from application.gui.hud import side_panel_width as sw
         for w in range(500, 1600, 37):
             p2 = sw(w, 5000)
             self.assertGreaterEqual(w - p2, 80)
+
+class Phase15GuiFixesTests(unittest.TestCase):
+    """Phase 15: side-panel overlap fix, setup-screen scrolling and the two-stage prompt editor.
+
+    All tests exercise pure logic/geometry with lightweight fakes (no rendering),
+    so they stay fast and headless like the rest of the suite.
+    """
+
+    @staticmethod
+    def key_event(key, unicode=None):
+        ev = pygame.event.Event(pygame.KEYDOWN, key=key)
+        if unicode is not None:
+            ev.unicode = unicode   # real pygame KEYDOWN events always carry .unicode
+        return ev
+
+    @classmethod
+    def _fake_side_panel_world(cls):
+        """Minimal stand-in for world.agents / font / screen used by the HUD tests."""
+        class FakeFont:
+            texts = []             # every rendered string, in draw order
+            def render(self, text, *args, **kwargs):
+                FakeFont.texts.append(str(text))
+                return SimpleNamespace(get_height=lambda: 14)
+            def size(self, text):
+                return (max(1, len(str(text))) * 7, 14)     # deterministic pseudo-metrics
+
+        a = SimpleNamespace(uid=1, name="Alpha", alive=True, hp=80.0, stamina=60.0,
+                            hunger=40.0, story=[(3, "ate berries")])
+        b = SimpleNamespace(uid=2, name="Beta", alive=True, hp=50.0, stamina=70.0,
+                            hunger=90.0, story=[(1, "wandered"), (2, "slept")])
+        a.age_years = lambda cfg: 30                        # callable attribute stands in for Agent.age_years
+        b.age_years = lambda cfg: 30
+        return SimpleNamespace(agents=[a, b], cfg={}), FakeFont   # .cfg is read by _draw_agent_entries (passed to age_years)
+
+    # ---- P15.1 + P15.2 side panel ------------------------------------------------
+    def test_vitals_rows_have_own_lines_bars_no_overlap_no_prompt(self):
+        from application.gui import hud as _hud
+        world, font = self._fake_side_panel_world()
+        bars: list = []
+
+        def spy_bar(screen, rect, value, color):
+            bars.append(rect)
+
+        screen = SimpleNamespace(blit=lambda surf, pos: None)
+        rect = pygame.Rect(100, 0, 260, 400)                # tall panel -> everything fits
+        with _mock.patch.object(_hud, "_bar", spy_bar), \
+             _mock.patch("pygame.draw.rect"):       # selection highlight not needed headless
+            _draw_agent_entries(screen, world, 2, font(), rect, 0)
+
+        # P15.2: the redundant "Prompt:" section is gone, the life story is kept
+        self.assertNotIn("Prompt:", font.texts)
+        self.assertIn("Life story:", font.texts)
+        self.assertIn("Alpha (age 30)", font.texts)
+        self.assertIn("Beta (age 30)", font.texts)
+        labels = [t for t in font.texts if t in ("HP", "STA", "HUNGER")]
+        self.assertEqual(labels, ["HP", "STA", "HUNGER", "HP", "STA", "HUNGER"])   # exact own line per row
+
+        # P15.1 core: bar y-positions strictly increase -> rows can never overwrite each other
+        ys = [b.y for b in bars]
+        self.assertEqual(len(ys), 6)
+        self.assertTrue(all(lo < hi for lo, hi in zip(ys, ys[1:])), f"bar rows overlap: {ys}")
+
+        # bar geometry stays clear of the (widest) label text and inside the panel
+        widest = max(font().size(l)[0] for l in ("HP", "STA", "HUNGER"))
+        off, w = vitals_bar_geometry(rect.w, widest)
+        self.assertEqual(off, 14 + int(widest))            # bar starts behind widest label + padding
+        self.assertGreater(off - 8, widest)                # (bar start) > (label end minus origin) -> no text collision
+        for b in bars:
+            self.assertEqual(b.x, rect.x + off)
+            self.assertEqual(b.w, w)
+
+    def test_vitals_rows_stop_at_sidebar_bottom(self):
+        from application.gui import hud as _hud
+        world, font = self._fake_side_panel_world()
+        screen = SimpleNamespace(blit=lambda surf, pos: None)
+        rect = pygame.Rect(100, 0, 260, 78)                # just tall enough for agent 1 + a name line of agent 2
+        with _mock.patch.object(_hud, "_bar", lambda *a: None), \
+             _mock.patch("pygame.draw.rect"):
+            _draw_agent_entries(screen, world, 2, font(), rect, 0)
+        labels = [t for t in font.texts if t in ("HP", "STA", "HUNGER")]
+        self.assertEqual(labels, ["HP", "STA", "HUNGER"])   # second agent's bars cut off cleanly - nothing overdrawn
+        self.assertNotIn("Life story:", font.texts)         # story section skipped when out of space
+
+    # ---- P15.3 setup-screen scrolling -------------------------------------------
+    @staticmethod
+    def _small_setup():
+        cfg = base_config()                             # 10 agents -> count row + 10 rows + start row = 12 rows
+        ws = WorldSetup(cfg, 7)
+        ws.win_w, ws.win_h = 800, 240                   # window too short: only (240-ROW_Y0)//(ROW_H+ROW_GAP)=4 rows fit
+        return ws
+
+    def test_setup_wheel_scroll_clamps_at_both_edges(self):
+        ws = self._small_setup()
+        max_s = ws._max_scroll()
+        self.assertGreater(max_s, 0)                    # this window really overflows
+        ws.handle_event(pygame.event.Event(pygame.MOUSEWHEEL, y=-99))     # far wheel-down
+        self.assertEqual(ws.scroll, min(99, max_s))    # clamped to the last possible offset
+        for _ in range(5):
+            ws.handle_event(pygame.event.Event(pygame.MOUSEWHEEL, y=100))  # far wheel-up
+        self.assertEqual(ws.scroll, 0)                 # never scrolled past the top
+
+    def test_setup_navigation_auto_scrolls_active_field_into_view(self):
+        ws = self._small_setup()
+        vis = ws._visible_row_count()
+        while True:                                      # arrow down until the start row is reached
+            ws.handle_event(self.key_event(pygame.K_DOWN))
+            self.assertGreaterEqual(ws.r, ws.scroll)     # cursor never left above the viewport ...
+            self.assertTrue(ws.r < ws.scroll + vis)      # ... and never below it
+            if ws.r == ws.count + 1:                     # start row reached -> done (no wrap-around needed before that)
+                break
+        self.assertEqual(ws.scroll, ws._max_scroll())    # end position is exactly the maximum scroll
+
+    def test_setup_click_hit_test_respects_scroll_offset(self):
+        ws = self._small_setup()
+        ws.handle_event(pygame.event.Event(pygame.MOUSEWHEEL, y=-2))
+        self.assertEqual(ws.scroll, 2)
+        r_target = 4                                    # agent row inside the scrolled viewport (rows 2..5 visible)
+        base = ws._row_fields(r_target)[1]["rect"]     # gender column field of that row (unshifted coordinates)
+        dy = -ws.scroll * (ROW_H + ROW_GAP)
+        shifted = base + (0, dy)
+        ev = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(shifted.x + 3, shifted.y + 3))
+        ws.handle_event(ev)
+        self.assertEqual((ws.r, ws.c), (r_target, 1))   # click at the *shifted* position selects that field
+
+        ws.r, ws.c = 0, 0
+        ev2 = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(base.x + 3, base.y + 3))   # unshifted coordinates
+        ws.handle_event(ev2)
+        self.assertNotEqual((ws.r, ws.c), (r_target, 1))    # the old position must not hit any field anymore
+
+    # ---- P15.4 two-stage prompt editor ------------------------------------------
+    def test_prompt_editor_two_stage_flow(self):
+        cfg = base_config()
+        sim = Simulation.new_world(cfg, slot=6, name="ph15", llm_enabled=False)
+        ed = PromptEditor(sim.world, cfg)
+        agent0 = ed.rows[0]
+        self.assertEqual(ed.stage, ed.STAGE_LIST)          # stage 1: plain name list first
+        before = agent0.prompt
+        self.assertIsNone(ed.handle_event(self.key_event(pygame.K_a, unicode="a")))   # typing on the list screen edits nothing
+        self.assertEqual(agent0.prompt, before)            # P15.4: editing only happens inside the big input area
+        self.assertIsNone(ed.handle_event(self.key_event(pygame.K_RETURN)))           # ENTER opens the editor for agent 0
+        self.assertEqual(ed.stage, ed.STAGE_EDIT)
+        for ch in "hello":
+            self.assertIsNone(ed.handle_event(self.key_event(pygame.K_F12, unicode=ch)))
+        self.assertEqual(agent0.prompt, before + "hello")  # live write-through intact in the edit stage
+        self.assertIsNone(ed.handle_event(self.key_event(pygame.K_ESCAPE)))           # ESC: editor -> back to list, NOT closed
+        self.assertEqual(ed.stage, ed.STAGE_LIST)
+        self.assertEqual(ed.text_scroll, 0.0)              # scroll state resets when leaving the big input area
+        self.assertEqual(ed.handle_event(self.key_event(pygame.K_ESCAPE)), {"kind": "close"})   # ESC on the list closes
+
+    def test_prompt_editor_hard_cap_and_wheel_clamp_in_edit_stage(self):
+        cfg = base_config()
+        sim = Simulation.new_world(cfg, slot=7, name="ph15b", llm_enabled=False)
+        ed = PromptEditor(sim.world, cfg)
+        agent = ed.rows[0]
+        cap = int(cfg.get("agents.prompts.init_max_chars"))
+        ed.open_editor_for(0)                            # stage switch by API (mouse click does this in the UI)
+        for _ in range(cap + 30):                       # type far past the hard limit inside the edit stage
+            self.assertIsNone(ed.handle_event(self.key_event(pygame.K_F12, unicode="x")))
+        self.assertLessEqual(len(agent.prompt), cap)    # clip()-hardcap per keystroke unchanged (Phase 10 rule)
+
+        ed._max_text_scroll = 50.0                      # content/viewport bound as set by draw()
+        ed.text_scroll = 999.0
+        self.assertIsNone(ed.handle_event(pygame.event.Event(pygame.MOUSEWHEEL, y=-1)))   # wheel down (+18 px after sign flip)
+        self.assertEqual(ed.text_scroll, 50.0)          # clamped to the maximum scroll
+        ed._max_text_scroll = 20.0
+        self.assertIsNone(ed.handle_event(pygame.event.Event(pygame.MOUSEWHEEL, y=99)))   # far wheel-up
+        self.assertEqual(ed.text_scroll, 0.0)           # clamped at the top
+
+    def test_prompt_editor_list_row_rect_tracks_scroll_offset(self):
+        fakes = [SimpleNamespace(uid=i + 1, name=f"C{i}", alive=True, prompt="", story=[]) for i in range(7)]
+        world = SimpleNamespace(agents=fakes)
+        ed = PromptEditor(world, {"get": lambda k, d=None: None})      # plain dict-style cfg is enough here
+        self.assertEqual(ed.stage, ed.STAGE_LIST)
+        ed.win_w, ed.win_h = 1000, 300                   # fallback row height 28 -> (300-130-20)//28 = 5 rows visible
+        self.assertEqual(ed._max_list_scroll(), 7 - 5)
+        step = int(ed._row_h)
+        ed.scroll_rows = 2
+        prev_y = None
+        for i in range(7):
+            r = ed.list_row_rect(i, step)
+            if prev_y is not None:                       # strictly ordered rows ...
+                self.assertGreater(r.y, prev_y)          # ... shifted purely by the scroll offset ...
+            prev_y = r.y
+            self.assertEqual(r.y, 130 + (i - ed.scroll_rows) * step)   # exact geometry behind clicks and drawing
+
 
 if __name__ == "__main__":
     unittest.main()

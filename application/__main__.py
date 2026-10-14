@@ -1,4 +1,4 @@
-"""Command-line entry point: python -m cavemen [options]."""
+"""Command-line entry point: python -m application [options]."""
 import argparse
 import json
 import sys
@@ -7,7 +7,7 @@ from .config import ConfigError, Config
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        prog="cavemen",
+        prog="cavemen",   # app stays named "Cavemen"; only the package dir was renamed to 'application'
         description="Ice-age tribe simulation with LLM-driven agents.")
     parser.add_argument("--config", default="config.yaml",
                         help="path to config.yaml")

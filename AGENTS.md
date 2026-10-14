@@ -7,7 +7,7 @@
 ## 1. Workspace Boundaries & File Access
 
 * **Scope:** Restrict file access strictly to the workspace root. All paths must be relative.
-* **Temporary Files:** Place all temporary files, caches, and scripts exclusively in `./tmp/`.
+* **Temporary Files:** Place all temporary files, caches, and scripts exclusively in `./scratchpad/`.
 * **Context Limit:** Operate under a strict 100k context limit; manage data and file processing accordingly.
 
 ## 2. Working Method & Fact-Based Approach
@@ -15,7 +15,7 @@
 * **Fact Priority:** Base all actions on verified facts from the codebase or documentation. Avoid speculation.
 * **Inquire on Ambiguity:** Explicitly ask the user when facing incomplete requirements, missing info, or potential assumptions. No unverified code generation.
 * **Instruction Dependency:** Do not start tasks (analysis/implementation) without explicit instructions, except for drafting implementation plans.
-* **Handling Large Inputs:** Process oversized files in chunks. Save intermediate summaries and helpers in `./tmp/`.
+* **Handling Large Inputs:** Process oversized files in chunks. Save intermediate summaries and helpers in `./scratchpad/`.
 * **Output Chunking & Writing:** Write files in small parts using Heredocs to fit context constraints. Do not use Python for writing files; always include the proper end flag.
 * **Complex Operations:** Store large database operations or complex commands in script files and execute them upon completion.
 

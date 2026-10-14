@@ -42,4 +42,4 @@ fi
 
 # --- Step 3/3: start the simulation --------------------------------------------
 log "Step 3/3 - starting simulation with $PYTHON (args: $*)"
-exec "$PYTHON" -m cavemen "$@"
+exec "$PYTHON" -m application "$@"

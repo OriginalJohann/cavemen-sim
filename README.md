@@ -49,7 +49,7 @@ Das Script übergibt zusätzliche Argumente direkt an die App weiter, z. B.:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install pygame pyyaml
-python -m cavemen            # aus dem Repo-Root ausführen; config.yaml wird von dort gelesen
+python -m application            # aus dem Repo-Root ausführen; config.yaml wird von dort gelesen
 ```
 
 ### NixOS
@@ -62,7 +62,7 @@ nix run .#cavemen -- --headless 300   # CLI-Args an die App weitergeben ("--"-Tr
 
 Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-Paket werden von dort geladen.
 
-## Kommandozeilen-Optionen (`python -m cavemen`)
+## Kommandozeilen-Optionen (`python -m application`)
 
 | Option | Bedeutung |
 |---|---|
@@ -84,7 +84,7 @@ Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-P
 ## Konfiguration & weitere Doku
 
 Alle Schwellwerte (Stammgröße, Beeren-/Fisch-Ertrag, Tier-Aggro, LLM-Endpoint, Wettergewichte …)
-stehen zentral in **`config.yaml`** im Repo-Root; jede Menge hat einen Default in `cavemen/config.py`.
+stehen zentral in **`config.yaml`** im Repo-Root; jede Menge hat einen Default in `application/config.py`.
 Vertiefte Architektur-Doku: [`STRUCTURE.md`](STRUCTURE.md) · Projektregeln: [`AGENTS.md`](AGENTS.md).
 
 ## Tests

@@ -13,7 +13,7 @@ fällt auf `llm/fallback.py` zurück – die Simulation crashet nie und blockt n
 
 ## Verzeichnisübersicht
 ```
-cavemen/
+application/
 ├── __init__.py            Paketmarker
 ├── __main__.py            Einstieg: CLI (GUI-Default, --headless N, --no-llm, --debug-llm)
 ├── config.py              Config-Klasse: config.yaml + eingebauten Defaults
@@ -76,7 +76,7 @@ gui/
 ```
 
 ## Laufzeit-Pfade
-1. **GUI**: `python -m cavemen` → `gui/app.py run(cfg)`: Menü (Slot 1–3:
+1. **GUI**: `python -m application` → `gui/app.py run(cfg)`: Menü (Slot 1–3:
    neue Welt / laden / explizit überschreiben; ENTER=Start, ESC=Beenden); für
    neue/überschriebene Welten dazwischen den Setup-Bildschirm (`gui/setup.py`:
    Name/Geschlecht/Alter/Prompt je Agent vorausgefüllt, ENTER startet die Sim),
@@ -86,14 +86,14 @@ gui/
    ENTER speichert In-Place in config.yaml (Kommentare bleiben erhalten), ESC bricht ab;
    Renderer (Kamera folgt dem Stamm) inkl. Sprechblasen über sprechenden Agenten
    (`simulation/conversations.py`) + fixed linke Sidebar für Weltinfos & Agenten (gui.side_panel_w, Default 300 px); Canvas wird rechts versetzt gezeichnet.
-2. **Headless**: `python -m cavemen --headless TICKS [--no-llm] [--debug-llm]` → periodische
+2. **Headless**: `python -m application --headless TICKS [--no-llm] [--debug-llm]` → periodische
    Snapshot-Zeilen auf stdout (Tests/Demo, kein GUI-Bildschirm nötig).
 3. **LLM-Schleife pro Tick**: für jede fällige Entscheidung ruft die Sim den
    Client ab; ungültige/fehlende Antwort → Fallbackregel. Charakter-Erzeugung
    beim Neustart nutzt denselben Pfad (Name/Trait ≤ 8/12 Zeichen).
 
 ## Konfiguration
-`config.yaml` im Repo-Root (wird von `cavemen/config.py` gelesen, Pfade relativ
+`config.yaml` im Repo-Root (wird von `application/config.py` gelesen, Pfade relativ
 zum Prozess-CWD). Kernschalter: `simulation.max_agents` (Stammgröße ≤ 10),
 `animals.types.*.speed/aggro_chance/hunt_damage`, `llm.base_url/model/timeout_s (30 s)/
 max_retries/max_tokens/decisions_per_tick (LLM-Netzwerk-Calls pro Tick)`, `worlds.gather.*` (Beerensäume: max_menge/ertrag/regrow_ticks),

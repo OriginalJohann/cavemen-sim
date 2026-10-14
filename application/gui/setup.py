@@ -10,7 +10,10 @@ typing itself never truncates mid-word.
 
 Keys: arrows move between fields, TAB steps through all fields in reading
 order, +/- change the tribe size while the count field is active, plain typing
-edits the active field, ENTER confirms and starts the sim, ESC returns to menu.
+edits the active field, ENTER confirms and starts the sim, ESC returns to menu,
+and the mouse wheel scrolls the row list vertically when it no longer fits into
+the window height (Phase 15 overflow fix); arrow/TAB navigation auto-scrolls so
+the active field always stays visible.
 """
 import random
 
@@ -54,6 +57,11 @@ class WorldSetup:
         self.rows: list[dict] = [self._suggestion(i) for i in range(self.count)]
         # active field as (row, column); row layout: 0=count, 1..count=agents, count+1=start
         self.r, self.c = 1, 0
+        # Phase 15 overflow handling: the row list scrolls vertically when it no
+        # longer fits into the window height; fallback size until draw() reports
+        # the real window size (keeps geometry pure and testable headlessly).
+        self.scroll = 0                   # index of the first visible row (0..count+1)
+        self.win_w, self.win_h = 1120, 640
 
     def _suggestion(self, index: int) -> dict:
         """Deterministic pre-fill per (slot, row): name, trait, age and prompt."""
@@ -78,6 +86,7 @@ class WorldSetup:
         self.count = n
         if not (0 <= self.r <= self.count + 1):                  # active field fell off-screen
             self.r, self.c = min(max(0, self.r - 2), max(0, self.count)), 0
+        self._clamp_scroll()                                    # count changes shrink what fits into the window
 
     # ---- field geometry ------------------------------------------------------
     def _row_fields(self, r: int) -> list[dict]:
@@ -99,14 +108,40 @@ class WorldSetup:
     def _all_rows(self) -> list[list[dict]]:
         return [self._row_fields(r) for r in range(self.count + 2)]
 
+    # ---- Phase 15 overflow (vertical scroll of the row list) ------------------
+    def _visible_row_count(self) -> int:
+        """How many uniform rows fit into the current window height below ROW_Y0."""
+        return max(1, (self.win_h - ROW_Y0) // (ROW_H + ROW_GAP))
+
+    def _max_scroll(self) -> int:
+        """Largest scroll index so every row (incl. count/start rows) stays reachable."""
+        return max(0, self.count + 2 - self._visible_row_count())
+
+    def _clamp_scroll(self) -> None:
+        self.scroll = max(0, min(int(self.scroll), self._max_scroll()))
+
+    def _ensure_cursor_visible(self) -> None:
+        """Auto-scroll the row list so arrow/TAB navigation never loses the active field off-screen."""
+        vis = self._visible_row_count()
+        if self.r < self.scroll:                        # cursor moved above the viewport
+            self.scroll = max(0, min(int(self.r), self._max_scroll()))
+        elif self.r >= self.scroll + vis:               # cursor moved below the viewport
+            self.scroll = max(0, min(int(self.r - vis + 1), self._max_scroll()))
+
     # ---- events --------------------------------------------------------------
     def handle_event(self, event):
         """Returns None (consumed/no action), a cancel dict or a confirm dict."""
+        if event.type == pygame.MOUSEWHEEL:             # Phase 15: scroll the row list vertically when it overflows the window height
+            self.scroll -= int(event.y)                 # pygame y>0 = wheel up, so wheel-down (y<0) advances to later rows
+            self._clamp_scroll()
+            return None
         if event.type != pygame.KEYDOWN:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for r, fields in enumerate(self._all_rows()):
-                    for c, field in enumerate(fields):
-                        if field["rect"].collidepoint(event.pos):
+                dy = -self.scroll * (ROW_H + ROW_GAP)   # shift the visible row rects by the current scroll offset
+                first, last = self.scroll, min(self.count + 2, self.scroll + self._visible_row_count())
+                for r in range(first, last):            # only rows inside the viewport are clickable
+                    for c, field in enumerate(self._row_fields(r)):
+                        if (field["rect"] + (0, dy)).collidepoint(event.pos):
                             self.r, self.c = r, c
                             return None
             return None
@@ -131,6 +166,7 @@ class WorldSetup:
             self.c = 0
         elif self.c >= len(self._row_fields(self.r)):
             self.c = len(self._row_fields(self.r)) - 1
+        self._ensure_cursor_visible()                   # Phase 15: keep the active field on screen during navigation
         field = self._row_fields(self.r)[self.c]
         if key in (pygame.K_PLUS, pygame.K_EQUALS) and field["key"] == "count":
             self._set_count(self.count + 1)      # cap enforced inside _set_count
@@ -191,16 +227,20 @@ class WorldSetup:
     # ---- drawing -------------------------------------------------------------
     def draw(self, screen, font_title, font_item) -> None:
         screen.fill(BG_COLOR)
+        self.win_w, self.win_h = screen.get_width(), screen.get_height()   # real size for the scroll geometry
         title = f"CAVMEN - Neue Welt in Slot {self.slot}"
         t = font_title.render(title, True, TEXT_COLOR)
         screen.blit(t, ((screen.get_width() - t.get_width()) // 2, TITLE_Y))
         hint = font_item.render(
-            "Arrows= move | TAB= next field | +/-= count | "
-            "ENTER=start | ESC=back", True, DIM_COLOR)
+            "Arrows= move | TAB= next field | +/-= count | Wheel=scroll | ENTER=start | ESC=back",
+            True, DIM_COLOR)
         screen.blit(hint, (ROW_X, HINT_Y))
+        dy = -self.scroll * (ROW_H + ROW_GAP)      # Phase 15: vertical shift of the row list
         for r, fields in enumerate(self._all_rows()):
+            if not 0 <= (r - self.scroll) < self._visible_row_count():   # only draw rows inside the viewport
+                continue
             for c, field in enumerate(fields):
-                rect = field["rect"]
+                rect = field["rect"] + (0, dy)     # pygame.Rect supports a (dx, dy) offset
                 pygame.draw.rect(screen, (30, 34, 40), rect)
                 if r == self.r and c == self.c:
                     pygame.draw.rect(screen, CURSOR_COLOR, rect, width=2)   # active cursor

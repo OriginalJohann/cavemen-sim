@@ -2,9 +2,16 @@
 
 The sidebar shows the world info as separate readable lines (day, weather,
 tribe size, animals, fish, berries) and below that the agent panel with
-vitals plus the selected agent's current individual prompt and recent
-life-story events. The world canvas is rendered to its right via
-renderer.draw_world(..., offset_x=panel_w), so neither overlaps the map.
+per-agent vitals plus the selected agent's recent life-story events. The
+individual prompt is intentionally not shown here: it can be edited live at
+any time via pause menu -> modal prompt editor (Phase 15), so re-printing it
+in the panel was redundant and only squeezed the readable area. The world
+canvas is rendered to its right via renderer.draw_world(..., offset_x=panel_w),
+so neither overlaps the map.
+
+Phase 15 overlap fix: every HP/STA/HUNGER row gets its own vertical step and
+the status bar starts past the widest label text (vitals_bar_geometry()), so no
+bar or entry can overwrite another; drawing clamps at the sidebar bottom.
 """
 import pygame
 from ..agents.agent import age_years_of_ticks
@@ -55,8 +62,28 @@ def draw_world_info_block(screen, world, x: int, y: int, font) -> int:
     return y
 
 
+def vitals_bar_geometry(panel_w: int, label_px: int) -> tuple[int, int]:
+    """Bar position and width for one vitals row (Phase 15 overlap fix).
+
+    Returns (x_offset_from_panel_left_edge, bar_width). Labels are blitted at
+    x + 8, so the bar always starts past the *widest* label ("HUNGER") plus a
+    few px of padding -> a bar can never overwrite its own or any other entry;
+    the width is clamped to stay inside the panel's right margin. Pure geometry:
+    unit-testable without pygame rendering.
+    """
+    offset = 14 + int(label_px)          # label origin (8) + padding (6) + widest label
+    return offset, max(1, int(panel_w) - offset - 8)
+
+
 def _draw_agent_entries(screen, world, selected_uid, font, rect: pygame.Rect, y: int) -> None:
-    """Agent vitals list plus prompt/story of the selected agent (was draw_panel)."""
+    """Agent vitals list plus life story of the selected agent (was draw_panel).
+
+    Phase 15 fixes: one vertical step per HP/STA/HUNGER row so rows can never
+    overwrite each other or neighbouring entries (the old code drew all three
+    bars at the same y, letting HUNGER cover HP/STA), and drawing stops as soon
+    as the sidebar height runs out. The individual prompt is no longer shown
+    here - it lives in the modal prompt editor opened from the pause menu.
+    """
     for agent in world.agents:
         if not agent.alive:
             continue
@@ -67,39 +94,38 @@ def _draw_agent_entries(screen, world, selected_uid, font, rect: pygame.Rect, y:
             hi = pygame.Rect(rect.x, y - 2, rect.w, line.get_height() + 4)
             pygame.draw.rect(screen, (90, 160, 210), hi, width=1)
         y += line.get_height() + 2
-        for label, value, color in (
-                ("HP", agent.hp / 100.0, (90, 200, 90)),
-                ("STA", agent.stamina / 100.0, (235, 200, 90)),
-                ("HUNGER", agent.hunger / 100.0, (210, 120, 80))):
-            label_surface = font.render(label, True, (200, 195, 185))
-            screen.blit(label_surface, (rect.x + 8, y))
-            _bar(screen, pygame.Rect(rect.x + 46, y + 3, rect.w - 54, 7), value, color)
-        y += 12
-    # selected agent: current individual prompt + last life-story events
+        vitals = (("HP", agent.hp / 100.0, (90, 200, 90)),
+                  ("STA", agent.stamina / 100.0, (235, 200, 90)),
+                  ("HUNGER", agent.hunger / 100.0, (210, 120, 80)))
+        label_px = max(font.size(label)[0] for label, _v, _c in vitals)   # widest label sets the bar start
+        bar_x_off, bar_w = vitals_bar_geometry(rect.w, label_px)
+        for label, value, color in vitals:      # own line per row -> rows never overwrite each other
+            ls = font.render(label, True, (200, 195, 185))
+            if y + max(7, ls.get_height()) > rect.bottom:   # next row no longer fits in the sidebar -> stop
+                return
+            screen.blit(ls, (rect.x + 8, y))
+            bar_y = y + max(0, (ls.get_height() - 7) // 2)   # centre the 7 px bar on its label line
+            _bar(screen, pygame.Rect(rect.x + bar_x_off, bar_y, bar_w, 7), value, color)
+            y += ls.get_height() + 1      # vertical step per row (was: all three bars at one y)
+    # selected agent: last life-story events (prompt display removed in Phase 15 - it is edited via the pause menu)
     selected = next((a for a in world.agents if a.uid == selected_uid), None)
     if selected is None:
         return   # panel shows the agent list only
-    y += 4
-    title = font.render("Prompt:", True, (235, 200, 120))
-    screen.blit(title, (rect.x + 8, y))
-    y += title.get_height() + 2
-    for ln in _wrap(font, selected.prompt, rect.w - 16):
-        s = font.render(ln, True, (235, 230, 215))
-        screen.blit(s, (rect.x + 8, y))
-        y += s.get_height() + 1
     y += 4
     title = font.render("Life story:", True, (160, 200, 235))
     screen.blit(title, (rect.x + 8, y))
     y += title.get_height() + 2
     for day, text in list(selected.story)[-3:]:   # only the latest events fit
         s = font.render(f"T{day}: {text}", True, (210, 205, 195))
+        if s.get_height() > rect.bottom - y:      # stop when the sidebar height runs out
+            break
         screen.blit(s, (rect.x + 8, y))
         y += s.get_height() + 1
 
 
 def draw_side_panel(screen, world, selected_uid, font, panel_w: int) -> None:
     """Full-height left sidebar next to the canvas (Phase 14): world info lines
-    on top, agent vitals / prompt / life story below."""
+    on top, agent vitals & life story below."""
     win_h = screen.get_height()
     rect = pygame.Rect(0, 0, max(1, int(panel_w)), win_h)
     overlay = pygame.Surface((rect.w, win_h), flags=pygame.SRCALPHA)
@@ -109,19 +135,3 @@ def draw_side_panel(screen, world, selected_uid, font, panel_w: int) -> None:
     pygame.draw.line(screen, (90, 160, 210),
                      (rect.x + 4, y_next), (rect.x + rect.w - 4, y_next))
     _draw_agent_entries(screen, world, selected_uid, font, rect, y_next + 8)
-
-
-def _wrap(font, text: str, width_px: int) -> list:
-    """Wrap one string into pixel-width-bounded lines using the font metrics."""
-    words = str(text).split()
-    lines, current = [], ""
-    for word in words:
-        candidate = f"{current} {word}".strip()
-        if font.size(candidate)[0] > width_px and current:
-            lines.append(current)
-            current = word
-        else:
-            current = candidate
-    if current:
-        lines.append(current)
-    return lines or [""]

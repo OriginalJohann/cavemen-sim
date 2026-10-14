@@ -76,7 +76,7 @@ flake.nix / shell.nix / install.sh / config.yaml / STRUCTURE.md
   LLMClient bekommt Offline-Latch (`_offline`): nach einem kompletten Timeout
   geben alle weiteren Calls sofort `None` zurück → Simulation blockt nie mehr,
   Fallback-Meldung erscheint genau einmal pro Prozess.
-- Verifikation: unittest-Suite grün (T=0); headless `python -m cavemen --headless
+- Verifikation: unittest-Suite grün (T=0); headless `python -m application --headless
   N --no-llm` stabil; GUI-E2E mit SDL_VIDEODRIVER=dummy: ENTER startet Simulation,
   Autosave schreibt gültiges world_1.json (tick 600), QUIT beendet sauber.
 - Testumgebung: ./tmp/venv (Python 3.14 via Nix + pygame-ce); Smoke-/Debug-Skripte
@@ -113,7 +113,7 @@ flake.nix / shell.nix / install.sh / config.yaml / STRUCTURE.md
       ("Neue Welt" und explizites "Ueberschreiben"), nicht Laden. Final bestätigt vom Nutzer
       (09.10.2026): Alter wird ebenfalls selbst eingegeben, Setup gilt für beide Erstellungs-
       Pfade, 100-Zeichen-Prompt-Hardcap bleibt in Kraft.
-- [x] P9.2 Neues Modul `cavemen/gui/setup.py` (Klasse WorldSetup) + GUI-State
+- [x] P9.2 Neues Modul `application/gui/setup.py` (Klasse WorldSetup) + GUI-State
       "setup" in `gui/app.py` zwischen Menü und Sim.
 - [x] P9.3 Vorschläge ("voreingetragen"): pro Index i Geschlecht alternierend M/F,
       Name/Eigenschaft via LLM (`make_character`) wenn Endpunkt online, sonst
@@ -187,7 +187,7 @@ Ziel: Request-Pile-up beim LM-Studio-Endpunkt vermeiden und rohe LLM-Antworten i
       je fälligem Agent auf stdout; Flag wird an Simulation/GUI durchgereicht (`gui/app.py run(cfg, llm_debug)`).
 - [x] P11.4 Tests: neue `LLMPacingDebugTests` (Budget limitiert Calls/Tick, Config-Override greift live,
       Debug-Flag druckt die rohe Antwort je Agent via stdout-Capture); Suite 32 → 35 Tests, alle grün.
-- [x] P11.5 LIVE-VERIFIKATION GELUNGEN (12.10.2026) via `nix run .#cavemen -- --headless 4 --debug-llm`
+- [x] P11.5 LIVE-VERIFIKATION GELUNGEN (12.10.2026) via `nix run .#application -- --headless 4 --debug-llm`
       (die Nix-Derivation läuft in einem eigenen Namespace, dort auflösbar; direkter Shell/Python-Zugriff
       auf den Workspace ist durch das FS-Overlay gestört: Name-Lookups auf älteren Inodes → ENOENT).
       Output bestätigt: [LLM-Debug]-Zeilen je fälligem Agent im Format "[LLM-Debug] <Name>: <raw> -> <action>",
@@ -230,7 +230,7 @@ ist eine zweite potenzielle Nahrungsquelle für künftige Zeilen.
       → Fallback auf bestehende Pools; Radius `food_radius_tiles` = 24 (<=0 deaktiviert).
 - [x] P13.2 Implementierung in `conversations.py`: `_nearest_food_source()` + `_direction_from()` (Himmelsricht-Wort) +
       `_food_hint_line()`, als bevorzugte Auswahl vor den bestehenden Zeilenpools; Config-Keys in `config.yaml`
-      und Default in `cavemen/config.py`; deterministische Zeile, LLM-unabhängig.
+      und Default in `application/config.py`; deterministische Zeile, LLM-unabhängig.
 - [x] P13.3 Optionaler LLM-Pfad: `LLMClient.conversation_line(..., bush_context)` – bei `use_llm=true` wird der
       Buschkontext (Relativposition) als zusätzliche Prompt-Zeile übergeben; Strict-JSON-Vertrag und
       Fallback auf die deterministische Hint-Zeile bleiben unverändert.
@@ -266,3 +266,40 @@ Welt angezeigt wird, um Lesbarkeit zu steigern." Ist-Analyse: aktuell zeichnen `
 - [ ] P14.4 Commit nach Nutzer-Bestätigung.
 
 **Status Phase 14:** Abgeschlossen am 14.10.2026. hud.py umgeschrieben: draw_top_bar/draw_panel ersetzt durch feste linke Sidebar (draw_side_panel: Weltinfos zeilenweise + Agent-Panel), Geometrie-Clamping via side_panel_width() (MIN_PANEL_W=120, Canvas ≥80 px); renderer.draw_world(..., offset_x) verschiebt den gesamten Welt-Viewport nach rechts; Breite aus gui.side_panel_w in config.yaml und cavemen/config.py (Default 300 px). Verifikation: 3 neue Layout-Unit-Tests (SidePanelLayoutTests), Suite 48/48 grün, plus Headless-GUI-Smoke (SDL_VIDEODRIVER=dummy, ein voller Frame mit realer Simulation). Zusatzbefund: Tippfehler cavmen in Log-Strings von llm/client.py und in einem Test-Kommentar behoben.
+
+
+## 13. Phase 15 – GUI-Bugfixes & UX-Verbesserungen (angefordert am 14.10.2026)
+Anforderung: vier nutzerseitig sichtbare Defekte/UX-Schwächen in den bestehenden Screens
+beheben; Simulation, Weltzustand und Save-Format bleiben unverändert.
+Ist-Analyse (im Code verifiziert):
+- `gui/hud.py::_draw_agent_entries`: alle drei Vitals-Zeilen (HP/STA/HUNGER) werden auf
+  derselben y-Koordinate gezeichnet – die zuletzt gezeichnete Hunger-Leiste samt Label
+  überdeckt damit die HP-/Stamina-Leisten; der Balken-Start (x+46) kollidiert zusätzlich mit
+  dem breiteren "HUNGER"-Labeltext. → Einträge wurden durch die Überdeckung unlesbar.
+- Das Side-Panel zeigte zudem den Prompt des gewählten Cavemen ("Prompt:"-Abschnitt); das ist
+  redundant, weil der Prompt über Pause-Menü → modaler Laufzeit-Prompt-Editor steuerbar ist.
+- `gui/setup.py`: kein Handling dafür, wenn die Zeilenliste (Anzahl + 10 Agenten + Start-Zeile)
+  in die Fensterhöhe nicht mehr passt – untere Zeilen laufen aus dem Sichtbereich (kein Scroll).
+- `gui/prompt_editor.py`: alle Namen samt vollständigen Prompts auf einem Bildschirm ohne
+  individuelle Auswahl; lange Prompts übersteigen die Fensterhöhe ohne Scrollmöglichkeit.
+
+- [ ] P15.1 Overlap-Fix Side-Panel (`hud.py`): jede HP/STA/HUNGER-Zeile erhält einen eigenen
+      vertikalen Schritt, der Statusbalken beginnt hinter dem breitesten Labeltext und wird
+      pro Zeile zentriert; zeichnen am unteren Sidebar-Rand geclampt → kein Eintrag deckt mehr
+      andere ab (reine Geometrie `vitals_bar_geometry()` unit-testbar).
+- [ ] P15.2 Prompt-Anzeige aus dem Side-Panel entfernen (Steuerung läuft über das Pause-Menü);
+      "Life story" bleibt; Docstring von `hud.py` + STRUCTURE.md aktualisieren.
+- [ ] P15.3 Listenoverflow im Dialog zur neuen Welt (`setup.py`): vertikales Scrollen der
+      Zeilenliste via Maus-Rad, Auto-Scroll auf das aktive Feld bei Pfeil-/TAB-Navigation,
+      Maus-Hit-Test mit Scroll-Versatz; Hinzeile um "Wheel=scroll" erweitert.
+- [ ] P15.4 Zweistufiger Prompt-Editor (`prompt_editor.py`): Stufe 1 = reine Namensliste
+      (Pfeiltasten/Maus); Klick oder ENTER auf einen Namen öffnet Stufe 2: großes Eingabefeld
+      für genau diesen Agenten mit vollständigem, zeilenweise umgebrochenem Prompt; passt der
+      Inhalt nicht in die Fensterhöhe, vertikales Scrollen (Mausrad/PAGEUP-PAGEDOWN/Ober-Unter);
+      Live-Schreibzugriff mit clip()-Hardcap bleibt erhalten; ESC-Hierarchie: Editor → zurück zur
+      Namensliste, Liste → komplett schließen.
+- [ ] P15.5 Verifikation: neue Unit-Tests (Vitals-Balken-Geometrie ohne Overlap, Setup-Scroll
+      Clamping/Auto-Scroll/Hit-Test mit Versatz, Zweistufen-Flow inkl. "Tipp nur im Editor",
+      Wheel-Clamp); komplette Suite grün; README + STRUCTURE.md aktualisieren.
+- [ ] P15.6 Commit nach Nutzer-Bestätigung.
+

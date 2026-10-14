@@ -13,21 +13,21 @@
     # Flake app schema only allows a store path in `program` (no shell string, no args key), so build a tiny
     # executable launcher derivation; trailing CLI args of "nix run" are forwarded to the app.
     launcher = pkgs.stdenv.mkDerivation {
-      name = "cavmen-launcher";
+      name = "cavemen-launcher";
       dontUnpack = true;
       installPhase = ''
         mkdir -p "$out/bin"
         cat > "$out/bin/cavemen" <<'EOS'
 #!/bin/sh
-exec ${py}/bin/python3 -m cavemen "$@"
+exec ${py}/bin/python3 -m application "$@"
 EOS
         chmod 0755 "$out/bin/cavemen"
       '';
     };
 
   in {
-    # Expose the Python env so "nix shell ." and "nix shell .#cavemen" work out of the box;
-    # apps.cavemen keeps working for "nix run .#cavemen".
+    # Expose the Python env so "nix shell ." works out of the box; apps.cavemen keeps the
+    # app named "cavemen" for "nix run .#cavemen" (only the package dir is 'application').
     packages.x86_64-linux = { cavemen = py; default = py; };
     devShells.x86_64-linux.default = pkgs.mkShell { packages = [ py ]; };
     apps.x86_64-linux.cavemen = {
