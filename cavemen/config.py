@@ -48,6 +48,9 @@ DEFAULTS = {
             "bubble_ticks": 16,
             "use_llm": False,
             "max_chars": 60,
+            "food_radius_tiles": 24,      # Manhattan radius around the pair midpoint for berry-bush hints; <=0 disables
+            "food_hint_hunger_below": 55.0,  # hint only when speaker or listener hungrier than this
+            "food_hint_chance": 0.35,     # probability a speech turns into a food-source hint
         },
         "fishing": {           # extra food source: fishing at lake shores
             "chance_per_try": 0.6,    # probability of a successful catch per try

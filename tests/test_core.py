@@ -20,7 +20,7 @@ from cavemen.llm.client import LLMClient        # noqa: E402
 from cavemen.llm.fallback import fallback_action, fallback_character  # noqa: E402
 from cavemen.simulation.game_loop import Simulation   # noqa: E402
 from cavemen.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent   # noqa: E402
-from cavemen.simulation.conversations import try_conversation                  # noqa: E402
+from cavemen.simulation.conversations import try_conversation, _nearest_food_source, _food_hint_line, _direction_from                  # noqa: E402
 from cavemen.gui.prompt_editor import PromptEditor                            # noqa: E402
 from cavemen.world.generation import World         # noqa: E402
 from cavemen.animals.animals import spawn_animal            # noqa: E402
@@ -296,6 +296,94 @@ class CoreTests(unittest.TestCase):
         second = try_conversation(world)              # both agents now on cooldown
         self.assertIsNotNone(first)
         self.assertIsNone(second)
+
+    # ---- Phase 13: food-source info in conversations ---------------------------
+    def test_food_hint_shares_bush_location(self):
+        cfg = base_config()
+        conv = cfg.data["agents"]["conversation"]
+        conv.update({"enabled": True, "chance_per_tick": 1.0, "food_hint_chance": 1.0})
+
+        def make_world():
+            world = self._world_with_close_pair(cfg)
+            a, b = world.agents              # Ane (uid 1), Bob (uid 2): the only possible pair
+            a.hunger = b.hunger = 45.0       # hungry enough -> hint gate opens
+            world.berry_tiles.clear()        # full control: exactly one bush at a known spot
+            lx, ly = b.x, b.y
+            world.berry_tiles[(lx + 5, ly - 3)] = 4   # 8 tiles northeast of the listener
+            return world
+
+        r1 = try_conversation(make_world())
+        r2 = try_conversation(make_world())   # identical seed/state -> reproducible line
+        self.assertIsNotNone(r1)                       # forced speech with a hungry pair
+        self.assertEqual(r1, r2)                      # same seed -> identical line & speaker
+        self.assertEqual(r1["speaker"], 1)           # fixed single pair: Ane speaks to Bob
+        text = r1["text"]
+        self.assertIn("northeast", text)              # direction relative to listener (Bob)
+        self.assertIn("8", text)                     # Manhattan distance in tiles
+
+    def test_food_hint_falls_back_without_bush(self):
+        cfg = base_config()
+        conv = cfg.data["agents"]["conversation"]
+        conv.update({"enabled": True, "chance_per_tick": 1.0, "food_hint_chance": 1.0})
+
+        def make_world():
+            world = self._world_with_close_pair(cfg)
+            a, b = world.agents
+            a.hunger = b.hunger = 45.0       # hungry -> the hint gate would open...
+            world.berry_tiles.clear()        # ...but no bush exists at all
+            return world
+
+        r1 = try_conversation(make_world())
+        self.assertIsNotNone(r1)              # speech still happens via the existing pools
+        text = r1["text"]
+        # food-hint templates are the only lines containing "tiles"/"steps"; none here
+        self.assertNotIn("tiles", text)
+        self.assertNotIn("steps", text)
+
+        conv["food_radius_tiles"] = 2       # bush exists but outside the tiny radius -> still fallback
+        world = make_world()
+        lx, ly = world.agents[1].x, world.agents[1].y
+        world.berry_tiles[(lx + 5, ly - 3)] = 4
+        r2 = try_conversation(world)
+        self.assertIsNotNone(r2)
+        text2 = r2["text"]
+        self.assertNotIn("tiles", text2)
+        self.assertNotIn("steps", text2)
+
+    def test_food_hint_requires_hunger(self):
+        cfg = base_config()
+        conv = cfg.data["agents"]["conversation"]
+        conv.update({"enabled": True, "chance_per_tick": 1.0, "food_hint_chance": 1.0})
+        world = self._world_with_close_pair(cfg)
+        a, b = world.agents
+        a.hunger = b.hunger = 90.0          # well fed: no food hint wanted even with bush nearby
+        lx, ly = b.x, b.y
+        world.berry_tiles.clear()
+        world.berry_tiles[(lx + 3, ly)] = 4
+        r = try_conversation(world)
+        self.assertIsNotNone(r)             # generic pool line instead of a bush hint
+        text = r["text"]
+        self.assertNotIn("tiles", text)
+        self.assertNotIn("steps", text)
+
+    def test_nearest_food_source_selection(self):
+        bushes = {(10, 12): 3, (5, 5): 6, (30, 4): 0}   # depleted bush must be ignored
+        self.assertEqual(_nearest_food_source(bushes, 9.0, 11.0, 24), ((10, 12), 2))
+        self.assertIsNone(_nearest_food_source(bushes, 30.0, 4.0, 1))   # only a depleted bush in range
+        tied = {(3, 5): 2, (5, 3): 2}                         # equal distance -> lexicographic tile order
+        self.assertEqual(_nearest_food_source(tied, 4.0, 4.0, 10), ((3, 5), 2))
+
+    def test_direction_words(self):
+        self.assertEqual(_direction_from(5, -3), "northeast")
+        self.assertEqual(_direction_from(-4, 2), "southwest")
+        self.assertEqual(_direction_from(6, 0), "east")
+        self.assertEqual(_direction_from(0, -7), "north")
+
+    def test_food_hint_near_line_on_own_tile(self):
+        rng = random.Random(1)               # seeded chat RNG: reproducible draw
+        text = _food_hint_line(rng, "Bob", (7, 9), (7, 9))   # bush on the listener's tile
+        self.assertIn("Bob", text)
+        self.assertNotIn("tiles", text)      # near-lines carry no distance/direction markers
 
     def test_prompt_editor_edits_live_and_enforces_hard_cap(self):
         cfg = base_config()

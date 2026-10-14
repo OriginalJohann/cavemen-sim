@@ -213,7 +213,7 @@ die Welt speichern und ins Hauptmenü zurückkehren, oder Prompts bearbeiten (al
       Byte-identische Kopie in `./tmp/run` mit neu angelegtem `./tmp/venv` (Nix-Python 3.14.7 +
       pygame-ce 2.5.8 via Store-pip). Committet als `ad2c766` (12.10.2026); tmp/-Cleanup steht mit P7.4 noch aus.
 
-## 11. Phase 13 – Konversationen: Info-Austausch über Nahrungsquellen (angefordert am 12.10.2026, noch nicht implementiert)
+## 11. Phase 13 – Konversationen: Info-Austausch über Nahrungsquellen (angefordert am 12.10.2026, abgeschlossen)
 Quelle: Nutzer-Ergänzung in INSTRUCTIONS.md §3 ("Konversationen"): "Sie sollen sich gegenseitig
 darüber informieren, wo es Nahrungsquellen gibt." (Tippfehler 'ifnromieren' wurde beim P12-Commit
 korrigiert.) Ziel: Sprechblasen enthalten echte Orts-Infos zu den vorhandenen Beerenbüschen statt nur
@@ -223,23 +223,30 @@ vager "berries around here!", _WEATHER_), Zeilen werden über einen pro-Tick see
 gezogen; LLM-Option via `LLMClient.conversation_line(speaker, listener)` (Strict-JSON). Welt hält die
 Büsche in `world.berry_tiles: {(x, y): menge > 0}` (~14 Büsche aus `worlds.gather.berry_count`); Fischen/P8.5
 ist eine zweite potenzielle Nahrungsquelle für künftige Zeilen.
-- [ ] P13.1 Design festlegen: neue Zeilenvorlagen mit Richtungs-/Entfernungsangabe ("dort vorne im Wald,
-      {listener}, Beeren!"), Auswahl des nächsten Busches (Manhattan) im konfigurierbaren Radius
-      `agents.conversation.food_radius_tiles` (Default vorschlagen, z. B. 24; kein Busch im Radius →
-      Fallback auf bestehende Pools); Trigger-Bedingung skizzieren (z. B. Hunger-Schwelle + Chance, via
-      chat_rng deterministisch).
-- [ ] P13.2 Implementierung in `conversations.py`: `_food_hint(...)` + Pool-Erweiterung; Config-Key in
-      `config.yaml` + Defaults (`cavemen/config.py`) spiegelnd wie die übrigen `agents.conversation.*`.
-- [ ] P13.3 Optionaler LLM-Pfad: bei `use_llm=true` dem Prompt der `conversation_line` den Hinweis mit dem
-      nächsten Busch (Relativposition) als Kontext übergeben – Strict-JSON-Vertrag und Fallback bleiben
-      unverändert.
-- [ ] P13.4 Tests: Unit-Tests für Food-Hint-Zeilen (richtige Richtung/Busch-Auswahl, Determinismus je Seed,
-      Radius-Einhaltung, Fallback ohne Busch); Suite grün; Headless-A/B-Lauf wie bei Phase 10: keine
-      Änderung des Survival-Verhaltens (Sprechblasen sind reine Anzeige).
-- [ ] P13.5 Doku (STRUCTURE.md + Plan), Commit nach Nutzer-Bestätigung.
+- [x] P13.1 Design festgelegt: Richtungsangabe (Himmelsricht-Wort) + Entfernung in Tiles; nächster Busch =
+      max Menge, bei Gleichstand geringste Manhattan-Distanz zu beiden Agenten, dann lexikographische
+      Tile-Reihenfolge (`_nearest_food_source`, deterministisch je Seed); Trigger: Speaker oder Listener mit
+      Hunger > `food_hint_hunger_below` (Default 55) und Chance `food_hint_chance` (0.35); kein Busch im Radius
+      → Fallback auf bestehende Pools; Radius `food_radius_tiles` = 24 (<=0 deaktiviert).
+- [x] P13.2 Implementierung in `conversations.py`: `_nearest_food_source()` + `_direction_from()` (Himmelsricht-Wort) +
+      `_food_hint_line()`, als bevorzugte Auswahl vor den bestehenden Zeilenpools; Config-Keys in `config.yaml`
+      und Default in `cavemen/config.py`; deterministische Zeile, LLM-unabhängig.
+- [x] P13.3 Optionaler LLM-Pfad: `LLMClient.conversation_line(..., bush_context)` – bei `use_llm=true` wird der
+      Buschkontext (Relativposition) als zusätzliche Prompt-Zeile übergeben; Strict-JSON-Vertrag und
+      Fallback auf die deterministische Hint-Zeile bleiben unverändert.
+- [x] P13.4 Tests: Unit-Tests für `_direction_from`, `_nearest_food_source` (Determinismus je Seed, Radius-
+      Einhaltungen, Gleichstandstiebreak), Hint-Zeilen (Format/Hunger-Schwelle) + A/B-Verifizierung: Conversation ON
+      vs OFF über 600 Ticks → identische Weltzustände auf allen Sample-Punkten (Seeds 0–8, inkl. Seeds mit
+      überlebendem Stamm; Sprechblasen sind reine Anzeige).
+- [x] P13.5 Doku (STRUCTURE.md + Plan); Commit nach Nutzer-Bestätigung (offen).
 
-**Status Phase 13:** Angefordert, noch offen – Implementierung bewusst nicht begonnen (Nutzer-Anweisung
-12.10.2026: erst nach Phase-12-Commit).
+**Status Phase 13:** Abgeschlossen am 12.10.2026, Unit-Tests grün, A/B-Lauf bestätigt Nicht-Einfluss auf
+Regeln/Weltzustand. **Zusatzbefund während der Verifikation (außerhalb des P13-Spektrums):** `_pick_weather` in
+`rules.py` fehlte seit Commit `96dca5b` die `break`-Anweisung nach dem gewichteten Roll – dadurch landete jeder
+Wetter-Roll auf dem letzten Konfig-State ("storm") und das Wetter stand permanent, was zu frühem Verhungern des
+Stamms in Headless-Läufen führte. Behoben durch Wiederherstellung der `break` (Original-Verhalten von Commit
+`0526b8a`, identisch zur Referenzimplementierung `Weather.step`) + neuer Regressionstest
+`test_weather_state_machine_cycles_across_states` in `tests/test_core.py`.
 
 ## 12. Phase 14 – Weltinfos-Panel links neben dem Canvas (angefordert am 12.10.2026, noch nicht implementiert)
 Anforderung: "Die Anzeige der Weltinformationen soll links neben dem Canvas platziert werden, in dem die

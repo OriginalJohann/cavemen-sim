@@ -31,7 +31,9 @@ simulation/
                            --debug-llm druckt [LLM-Debug]-Zeilen mit der rohen Antwort je Agent auf stdout
 └── conversations.py       Agenten-Konversation (Sprechblasen): deterministische Dialog-Pools via
                            seeded world-rng, optional LLM-Zeilen, Distanz/Cooldown/Bubble-Dauer
-                           via `agents.conversation.*` in config.yaml
+                           via `agents.conversation.*` in config.yaml; Nahrungsquellen-Info-Austausch:
+                           nächste Beerensaum im konfigurierbaren Radius als Richtung + Entfernung
+                           (food_radius_tiles / food_hint_hunger_below / food_hint_chance), rein anzeigetechnisch
 world/
 ├── generation.py          Prozedurale Welt (Seed): Tiles, Höhle, Wald/Wasser/Hügel
 │                          + World-Serialisierung (to_dict/from_dict)
@@ -95,7 +97,7 @@ gui/
 zum Prozess-CWD). Kernschalter: `simulation.max_agents` (Stammgröße ≤ 10),
 `animals.types.*.speed/aggro_chance/hunt_damage`, `llm.base_url/model/timeout_s (30 s)/
 max_retries/max_tokens/decisions_per_tick (LLM-Netzwerk-Calls pro Tick)`, `worlds.gather.*` (Beerensäume: max_menge/ertrag/regrow_ticks),
-`agents.conversation.*` (Sprechblasen: Distanz/Cooldown/Bubble-Dauer/use_llm), agents.fishing.* (Fischfang am Seeufer: Chance/Ertrag/Cooldown),
+`agents.conversation.*` (Sprechblasen: Distanz/Cooldown/Bubble-Dauer/use_llm, Food-Hints: food_radius_tiles/food_hint_hunger_below/food_hint_chance), agents.fishing.* (Fischfang am Seeufer: Chance/Ertrag/Cooldown),
 `worlds.save_dir/max_worlds`, `gui.sim.llm`. Alle
 Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.
 

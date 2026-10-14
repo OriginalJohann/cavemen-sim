@@ -3,7 +3,7 @@
 # All limits, thresholds and LLM endpoints are parameterized here.
 # ============================================================
 simulation:
-  max_agents_per_world: 5   # hard cap of cavemen per world
+  max_agents_per_world: 10   # hard cap of cavemen per world
   tick_rate_hz: 5.0   # logical ticks per second (GUI pacing)
   ticks_per_day: 24            # sim-hours per day (tick = one sim-hour)
   days_per_year: 36         # compressed ice-age calendar (sim-days per sim-year)
@@ -44,12 +44,15 @@ agents:
     bubble_ticks: 16          # how long the speech bubble stays visible
     use_llm: false            # model-generated lines need an online endpoint; default deterministic
     max_chars: 60             # hard limit for one dialogue line
+    food_radius_tiles: 24     # search radius (Manhattan, around the pair midpoint) a berry-bush hint may point at; <=0 disables hints
+    food_hint_hunger_below: 55   # a hint only fires when speaker or listener is hungrier than this value
+    food_hint_chance: 0.35    # probability that one speech becomes a food-source hint
   fishing:                   # fishing as an extra food source at water tiles
     chance_per_try: 0.6       # probability of a successful catch per attempt
     hunger_restore: 8.0       # satiety gained by one successful catch
     cooldown_ticks: 12        # min ticks between two attempts (per agent)
 llm:
-  base_url: "http://127.0.0.1:1234"   # IP:Port; llm/client.py ergänzt bei LM-Studio-Typen automatisch "/v1" + /chat/completions
+  base_url: "http://127.0.0.1:123"   # IP:Port; llm/client.py ergänzt bei LM-Studio-Typen automatisch "/v1" + /chat/completions
   api_key: ""   # empty -> no auth header sent
   model: "qwen2.5-3b-instruct"   # model id exposed by the server
   timeout_s: 30.0   # seconds until a decision call times out; local models can need several seconds per answer
@@ -75,6 +78,6 @@ animals:
     triceratops: {weight: 2, speed: 0.3, aggro_chance: 0.10, hunt_damage: 18, size: 3 }  # dinosaur (procedural)
     fish:        { weight: 2, speed: 0.6, aggro_chance: 0.0, hunt_damage: 4,  size: 1 }   # aquatic prey drifting in the lake
 GUI:
-  window_w: 960
-  window_h: 540
+  window_w: 2000
+  window_h: 2000
   tile_px: 16

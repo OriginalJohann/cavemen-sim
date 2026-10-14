@@ -21,6 +21,7 @@
 * **Essen ohne jagen:** Es soll Möglichkeiten geben an Nahrung zu kommen, ohne zu jagen z.B. Sammeln von Beeren oder Fischen.
 * **Tickraten:** Die Tickrate der Simulation soll konfigurierbar sein so, dass Nutzer mit leistungsstärkeren Systemen eine schnellere Simulation erhalten können.
 * **Observierbarkeit:** Die Anwendung soll per Kommandozeilenargument in einem Modus gestartet werden können, der die Kommunikation mit dem LLM-Endpoint im Terminal darstellen kann.
+* **Seeding:** Um leichter zu testen soll es möglich sein, beim Erstellen einer Welt einen Seed einzugeben, um die Generierung konsistent zu gestalten.
 
 ## 3. Agenten-Management & Attribute
 

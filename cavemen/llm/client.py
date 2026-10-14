@@ -140,15 +140,22 @@ class LLMClient:
             return None
         return {"name": name, "trait": trait}
 
-    def conversation_line(self, speaker, listener):
+    def conversation_line(self, speaker, listener, food_hint=None):
         """Ask the LLM for one short caveman line; returns str or None.
 
         Used only when `agents.conversation.use_llm` is enabled; failures
         degrade to None so the deterministic dialogue pools take over.
+        `food_hint` (optional) passes a nearby berry-bush fact (direction + distance)
+        as context so the model can share real food-source info; the strict-JSON
+        contract and 60-char cap stay unchanged either way.
         """
         user = (
             f"{speaker.name} says something to {listener.name}. "
             f"Hunger {int(speaker.hunger)}%, age {int(speaker.age_years(self.cfg))} years.\n"
+        )
+        if food_hint:                       # Phase 13 context line, only when a bush was found
+            user += f"Nearby fact worth mentioning when it fits: {food_hint}\n"
+        user += (
             'Reply with STRICT JSON only: {"line": string, max 60 chars, in English, '
             "one short caveman-flavoured sentence."
         )
