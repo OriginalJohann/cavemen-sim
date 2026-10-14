@@ -71,8 +71,8 @@ gui/
 │                          ENTER=In-Place-Save via update_config_values(), ESC=abbrechen
 ├── menu.py                Menü Welt-Auswahl (neue/laden/überschreiben; ENTER=bestätigen)
 ├── renderer.py            Top-Down-Pixelart-Rendering: Tiles inkl. Beeren-Punkte, Tiere,
-│                          Agenten, Sprechblasen über sprechenden Agenten, Kamera-Follow
-└── hud.py                 HUD: Welt-Leiste (inkl. Beeren/Fisch) + Agent-Panel
+│                          Agenten, Sprechblasen über sprechenden Agenten, Kamera-Follow; Welt-Viewport-Versatz via offset_x (linke Sidebar)
+└── hud.py                 Fixed linke Sidebar (Weltinfos zeilenweise + Agentenliste); draw_side_panel, Breite via side_panel_width()
 ```
 
 ## Laufzeit-Pfade
@@ -85,7 +85,7 @@ gui/
    Hauptmenü → „Edit settings" öffnet das globale Settings-Menü (`gui/config_editor.py`),
    ENTER speichert In-Place in config.yaml (Kommentare bleiben erhalten), ESC bricht ab;
    Renderer (Kamera folgt dem Stamm) inkl. Sprechblasen über sprechenden Agenten
-   (`simulation/conversations.py`) + HUD (Welt-Leiste + Agent-Panel).
+   (`simulation/conversations.py`) + fixed linke Sidebar für Weltinfos & Agenten (gui.side_panel_w, Default 300 px); Canvas wird rechts versetzt gezeichnet.
 2. **Headless**: `python -m cavemen --headless TICKS [--no-llm] [--debug-llm]` → periodische
    Snapshot-Zeilen auf stdout (Tests/Demo, kein GUI-Bildschirm nötig).
 3. **LLM-Schleife pro Tick**: für jede fällige Entscheidung ruft die Sim den

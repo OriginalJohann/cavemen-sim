@@ -29,16 +29,19 @@ def camera_position(world, window_w: int, tile_px: int) -> tuple:
     return _clamp(int(cx * tile_px - view_w // 2), 0, map_w - view_w)
 
 
-def draw_world(screen, world, window_h: int, tile_px: int, font=None) -> None:
+def draw_world(screen, world, window_h: int, tile_px: int, font=None, offset_x=0) -> None:
     """Draw the visible part of the map plus animals and agents - and bubbles.
 
     An optional `font` enables drawing transient conversation bubbles above
     speaking agents (INSTRUCTIONS §3); without it the function is unchanged.
+    `offset_x` shifts all rendering right by that many pixels so a fixed left
+    sidebar for the world info can sit outside the canvas (Phase 14).
     """
     tile = max(2, int(tile_px))
     win_w, win_h = screen.get_width(), window_h
+    offset_x = max(0, int(offset_x))      # reserved area left of the canvas (sidebar)
     map_w, map_h = world.w * tile, world.h * tile
-    view_w, view_h = min(win_w, map_w), min(win_h, map_h)
+    view_w, view_h = min(max(1, win_w - offset_x), map_w), min(win_h, map_h)
     agents = [a for a in world.agents if a.alive]
     if agents:
         cx = sum(a.x for a in agents) / len(agents)
@@ -55,12 +58,12 @@ def draw_world(screen, world, window_h: int, tile_px: int, font=None) -> None:
             color = TILE_COLORS[t]
             if t == GRASS and (tx + ty) % 2 == 1:   # checker variation
                 color = tuple(max(0, c - 8) for c in color)
-            screen.fill(color, pygame.Rect((tx - x0) * tile, (ty - y0) * tile, tile, tile))
+            screen.fill(color, pygame.Rect((tx - x0) * tile + offset_x, (ty - y0) * tile, tile, tile))
     # ---- berry bushes (dark-red dots scaled by remaining berries) ----------
     for pos, amount in world.berry_tiles.items():
         if amount <= 0:
             continue
-        px = int(pos[0] * tile) - cam_x
+        px = int(pos[0] * tile) - cam_x + offset_x
         py = int(pos[1] * tile) - cam_y
         if not (-tile <= px < view_w and -tile <= py < view_h):   # skip off-screen
             continue
@@ -72,7 +75,7 @@ def draw_world(screen, world, window_h: int, tile_px: int, font=None) -> None:
     for animal in world.animals:
         if not animal.alive:
             continue
-        px = int(animal.x * tile) - cam_x
+        px = int(animal.x * tile) - cam_x + offset_x
         py = int(animal.y * tile) - cam_y
         side = max(3, min(tile, (tile * animal.size(world.cfg)) // 2 + 2))
         color = ANIMAL_COLORS.get(animal.kind, (150, 90, 60))
@@ -83,7 +86,7 @@ def draw_world(screen, world, window_h: int, tile_px: int, font=None) -> None:
     for agent in world.agents:
         if not agent.alive:
             continue
-        px = int(agent.x * tile) - cam_x
+        px = int(agent.x * tile) - cam_x + offset_x
         py = int(agent.y * tile) - cam_y
         body = pygame.Rect(px + (tile * 2 // 5), py + (tile * 2 // 5),
                            tile * 3 // 5, tile * 3 // 5)
@@ -127,6 +130,6 @@ def draw_world(screen, world, window_h: int, tile_px: int, font=None) -> None:
             pygame.draw.rect(surf, (60, 50, 40), pygame.Rect(0, 0, w, h), width=1)
             px = int(agent.x * tile) - cam_x
             py = int(agent.y * tile) - cam_y
-            bx = _clamp(px + tile // 2 - w // 2, 0, max(0, view_w - w))   # clamped to view
+            bx = _clamp(px + tile // 2 - w // 2, offset_x, offset_x + max(0, view_w - w))   # clamped to canvas
             by = _clamp(py - 6 - h, 0, max(0, view_h - h))                # above the HP bar
             screen.blit(surf, (bx, by))

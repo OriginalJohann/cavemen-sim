@@ -83,10 +83,10 @@ class LLMClient:
                     last_error = str(exc)
         if last_error == "'choices'":
             # server answered but with a non-OpenAI payload -> usually a wrong path prefix
-            print(f"[cavmen] LLM endpoint {urls[0]} answered without 'choices' - check base_url in "
+            print(f"[cavemen] LLM endpoint {urls[0]} answered without 'choices' - check base_url in "
                   "config.yaml (LM-Studio needs e.g. http://127.0.0.1:1234/v1). Fallback mode active.")
         else:
-            print(f"[cavmen] LLM endpoint not reachable ({last_error}); fallback mode active.")
+            print(f"[cavemen] LLM endpoint not reachable ({last_error}); fallback mode active.")
         self._offline = True   # latched: subsequent calls skip the network entirely
         return None
 

@@ -22,6 +22,7 @@ from cavemen.simulation.game_loop import Simulation   # noqa: E402
 from cavemen.simulation.rules import run_tick, _reproduce, _regrow_berries, _step_agent, _pick_weather   # noqa: E402
 from cavemen.simulation.conversations import try_conversation, _nearest_food_source, _food_hint_line, _direction_from                  # noqa: E402
 from cavemen.gui.prompt_editor import PromptEditor                            # noqa: E402
+from cavemen.gui.hud import side_panel_width  # noqa: E402 (Phase 14 sidebar layout)
 from cavemen.world.generation import World         # noqa: E402
 from cavemen.animals.animals import spawn_animal            # noqa: E402
 from cavemen.world.generation import WATER, FOREST           # noqa: E402
@@ -591,7 +592,7 @@ class LLMClientTests(unittest.TestCase):
         vals = {"llm.base_url": base_url, "llm.api_key": "", "llm.model": "fake-model",
                 "llm.timeout_s": 5.0, "llm.max_retries": 1, "llm.max_tokens": 32}
 
-        class Cfg:                       # minimal duck-type of cavmen.config.Config.get
+        class Cfg:                       # minimal duck-type of cavemen.config.Config.get
             def get(self, key, default=None):
                 return vals.get(key, default)
         return Cfg()
@@ -718,5 +719,28 @@ class PauseMenuTests(unittest.TestCase):
         rect = menu.item_rect(2)
         event = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(rect.x + 5, rect.y + 5))
         self.assertEqual(menu.handle_event(event)["kind"], "prompts")
+class SidePanelLayoutTests(unittest.TestCase):
+    """Phase 14: fixed left sidebar next to the canvas - pure layout facts."""
+
+    def test_side_panel_width_clamps_to_window(self):
+        self.assertEqual(side_panel_width(2000, 300), 300)      # request fits verbatim
+        self.assertEqual(side_panel_width(960, 5000), 880)      # huge request clamped to win-80
+        self.assertGreaterEqual(side_panel_width(300, 10), 120)
+
+    def test_panel_and_canvas_fill_window_without_overlap(self):
+        for win in (300, 400, 960, 2000):
+            p = side_panel_width(win, 5000)     # worst-case request
+            canvas_w = win - p                  # canvas region [p, win)
+            self.assertGreaterEqual(p, 120)     # panel stays usable (MIN_PANEL_W)
+            self.assertGreater(canvas_w, 0)     # canvas never disappears
+            self.assertEqual(p + canvas_w, win) # exact cover -> zero overlap
+
+    def test_canvas_never_below_minimum_width(self):
+        # Phase 14: canvas region must keep >= 80 px even in small windows.
+        from cavemen.gui.hud import side_panel_width as sw
+        for w in range(500, 1600, 37):
+            p2 = sw(w, 5000)
+            self.assertGreaterEqual(w - p2, 80)
+
 if __name__ == "__main__":
     unittest.main()

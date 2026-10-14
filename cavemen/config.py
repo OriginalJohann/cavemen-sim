@@ -88,7 +88,7 @@ DEFAULTS = {
             "triceratops": {"weight": 2, "speed": 0.3, "aggro_chance": 0.10, "hunt_damage": 18, "size": 3},
         },
     },
-    "GUI": {"window_w": 960, "window_h": 540, "tile_px": 16},
+    "GUI": {"window_w": 960, "window_h": 540, "tile_px": 16, "side_panel_w": 300},
 }
 
 

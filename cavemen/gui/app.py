@@ -54,6 +54,10 @@ def run(cfg, llm_debug: bool = False) -> None:
     font_item = pygame.font.Font(None, 20)
     font_bubble = pygame.font.Font(None, 14)   # speech bubbles above speaking agents
 
+    # Phase 14: fixed left sidebar for world info + agent panel; the world
+    # canvas is rendered to its right (see renderer.draw_world offset_x).
+    side_panel_w = hud.side_panel_width(win_w, int(cfg.get("GUI.side_panel_w", 300)))
+
     state = "menu"
     menu_state = MenuState(cfg)
     setup_state: WorldSetup | None = None   # active only in the "setup" state
@@ -171,9 +175,9 @@ def run(cfg, llm_debug: bool = False) -> None:
             if selected_uid is None or next(
                     (a.uid for a in sim.world.agents if a.alive), None) != selected_uid:
                 selected_uid = next((a.uid for a in sim.world.agents if a.alive), None)
-            renderer.draw_world(screen, sim.world, win_h, tile_px, font=font_bubble)
-            hud.draw_top_bar(screen, sim.world, font_item)
-            hud.draw_panel(screen, sim.world, selected_uid, font_item)
+            renderer.draw_world(screen, sim.world, win_h, tile_px, font=font_bubble,
+                                offset_x=side_panel_w)
+            hud.draw_side_panel(screen, sim.world, selected_uid, font_item, side_panel_w)
         else:
             tick_acc = 0.0   # menu/setup screens do not advance the simulation
         if state == "setup":

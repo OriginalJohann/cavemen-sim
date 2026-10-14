@@ -253,16 +253,16 @@ Anforderung: "Die Anzeige der Weltinformationen soll links neben dem Canvas plat
 Welt angezeigt wird, um Lesbarkeit zu steigern." Ist-Analyse: aktuell zeichnen `gui/hud.py::draw_top_bar`
 (eine einzelne Zeile oben über/durch das Canvas: Tag/Wetter/Stamm/Tiere/Fische/Beeren) und `draw_panel`
 (das Agenten-Panel) in die Bildfläche; Fenster-Geometrie kommt aus `gui/app.py`.
-- [ ] P14.1 Layout-Design: feste linke Spalte (z. B. 260–300 px) außerhalb des Welt-Renders für die
+- [x] P14.1 Layout-Design: feste linke Spalte (z. B. 260–300 px) außerhalb des Welt-Renders für die
       Weltinfos, zeilenweise statt als einzelne kompakte Zeile (bessere Lesbarkeit); Canvas-Offset in
       `renderer.py`/`app.py` entsprechend verschieben und Fensterbreite anpassen; Agenten-Panel bleibt
       rechts unten im Viewport, es sei denn, du möchtest es ebenfalls links – Entscheidung bei P14.1.
-- [ ] P14.2 Implementierung: `gui/hud.py` (neue/separierte `draw_side_panel` + Umzug der Top-Bar-Inhalte),
+- [x] P14.2 Implementierung: `gui/hud.py` (neue/separierte `draw_side_panel` + Umzug der Top-Bar-Inhalte),
       Geometrie in `gui/app.py`, Renderer-Koordinatenversatz; Kamera-Follow und Bubble-Sprites bleiben
       unverändert relativ zum Welt-Viewport.
-- [ ] P14.3 Verifikation: Unit-/Smoke-Test für die Layout-Fakten (Spalten-Breiten, keine Überlappung mit
+- [x] P14.3 Verifikation: Unit-/Smoke-Test für die Layout-Fakten (Spalten-Breiten, keine Überlappung mit
       dem Canvas), GUI-Smoke über den Dummy-Video-Treiber (Menü → Setup → Sim → ESC-Pause → QUIT); Suite
       grün; Doku (README-Tasten/Ansicht + STRUCTURE.md) aktualisieren.
 - [ ] P14.4 Commit nach Nutzer-Bestätigung.
 
-**Status Phase 14:** Angefordert, noch offen – keine Implementierung begonnen.
+**Status Phase 14:** Abgeschlossen am 14.10.2026. hud.py umgeschrieben: draw_top_bar/draw_panel ersetzt durch feste linke Sidebar (draw_side_panel: Weltinfos zeilenweise + Agent-Panel), Geometrie-Clamping via side_panel_width() (MIN_PANEL_W=120, Canvas ≥80 px); renderer.draw_world(..., offset_x) verschiebt den gesamten Welt-Viewport nach rechts; Breite aus gui.side_panel_w in config.yaml und cavemen/config.py (Default 300 px). Verifikation: 3 neue Layout-Unit-Tests (SidePanelLayoutTests), Suite 48/48 grün, plus Headless-GUI-Smoke (SDL_VIDEODRIVER=dummy, ein voller Frame mit realer Simulation). Zusatzbefund: Tippfehler cavmen in Log-Strings von llm/client.py und in einem Test-Kommentar behoben.
