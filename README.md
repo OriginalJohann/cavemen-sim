@@ -77,9 +77,11 @@ Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-P
 |---|---|
 | ENTER | Auswahl im Welt-Menü / Setup bestätigen, Simulation starten |
 | ESC | Menü verlassen bzw. App beenden |
-| ESC | Pause-Menü in der Simulation (pausiert): Weiter / Welt speichern & Hauptmenü / Prompts bearbeiten (modaler Prompt-Editor) |
+| ESC | Pause-Menü in der Simulation (pausiert): Weiter / Welt speichern & Hauptmenü / Prompts bearbeiten (modaler zweistufiger Prompt-Editor: Namensliste -> Eingabefeld pro Agent, scrollbar) |
 | Hauptmenü → „Edit settings" (ENTER = speichern) | Globales Settings-Menü: zentrale `config.yaml`-Werte in der GUI bearbeiten; ESC bricht ab. Der In-Place-Save behält Kommentare und Zeilenreihenfolge bei. |
 | F5 | Manueller World-Save in den aktuellen Slot |
+| Mausrad / PAGEUP-PAGEDOWN | Vertikales Scrollen im Setup-Bildschirm und im modalen Prompt-Editor (Namensliste & Eingabefeld) |
+
 
 ## Konfiguration & weitere Doku
 
@@ -90,5 +92,5 @@ Vertiefte Architektur-Doku: [`STRUCTURE.md`](STRUCTURE.md) · Projektregeln: [`A
 ## Tests
 
 ```bash
-python -m unittest discover -s tests   # 38 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence, Pause-Menü
+python -m unittest discover -s tests   # 56 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence, Phase-15-GUI-Fixes (Sidebar-Vitals ohne Overlap, Setup-Scroll, zweistufiger Prompt-Editor), Pause-Menü
 ```

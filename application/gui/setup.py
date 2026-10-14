@@ -141,7 +141,7 @@ class WorldSetup:
                 first, last = self.scroll, min(self.count + 2, self.scroll + self._visible_row_count())
                 for r in range(first, last):            # only rows inside the viewport are clickable
                     for c, field in enumerate(self._row_fields(r)):
-                        if (field["rect"] + (0, dy)).collidepoint(event.pos):
+                        if field["rect"].move(0, dy).collidepoint(event.pos):   # .move(): works in classic pygame AND pygame-ce (Rect + tuple only exists in pygame-ce)
                             self.r, self.c = r, c
                             return None
             return None
@@ -186,14 +186,20 @@ class WorldSetup:
             self.r, self.c = order[(idx + 1) % len(order)]   # wrap-around keeps TAB cycling safe
             return None
         # ---- plain text editing of the active field --------------------------
-        ch = event.unicode or ""
-        if not ch.isprintable() or ch == " ":    # control chars / spaces ignored in fields
+        ch = getattr(event, "unicode", None) or ""   # defensive: tolerate KEYDOWN events without .unicode (as in prompt_editor.py)
+        if key == pygame.K_BACKSPACE:                # deletion needs no unicode payload and applies to agent rows only
+            if 0 < self.r <= self.count and field["text"]:     # count/start rows carry no editable text row -> skip safely
+                row = self.rows[self.r - 1]
+                row[field["key"]] = field["text"][:-1]
+            return None
+        if self.r == 0 or self.r > self.count:      # single-field count/start row: nothing to edit, never index self.rows
+            return None
+        # note: in Python "".isprintable() is True, so the explicit empty check keeps pure navigation keys (no unicode payload) out of this section
+        if not ch or not ch.isprintable() or ch == " ":    # control chars / spaces ignored in fields
             return None
         cur = field["text"]
         row = self.rows[self.r - 1]
-        if key == pygame.K_BACKSPACE:
-            row[field["key"]] = cur[:-1]
-        elif field["key"] == "name":
+        if field["key"] == "name":                 # backspace already handled above; remaining branches append printable chars only
             row["name"] = cur + ch               # hard cap applied only at confirmation
         elif field["key"] == "gender":           # single letter m/f, replaces content
             low = ch.lower()
@@ -240,7 +246,7 @@ class WorldSetup:
             if not 0 <= (r - self.scroll) < self._visible_row_count():   # only draw rows inside the viewport
                 continue
             for c, field in enumerate(fields):
-                rect = field["rect"] + (0, dy)     # pygame.Rect supports a (dx, dy) offset
+                rect = field["rect"].move(0, dy)    # .move() (not Rect + tuple): stays compatible with classic pygame and pygame-ce alike
                 pygame.draw.rect(screen, (30, 34, 40), rect)
                 if r == self.r and c == self.c:
                     pygame.draw.rect(screen, CURSOR_COLOR, rect, width=2)   # active cursor

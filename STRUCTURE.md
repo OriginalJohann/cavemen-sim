@@ -61,9 +61,14 @@ gui/
 │                          → Sim; Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave
 ├── setup.py               Manuelle Stamms-Erstellung (WorldSetup): 4-Spalten-Formular
 │                          Name/Geschlecht/Alter/Prompt + Anzahl-/Start-Zeile; deterministisch
-│                          vorausgefüllt, harte Grenzen erst bei Bestätigung, Roster an Sim
-├── prompt_editor.py       Modaler Laufzeit-Prompt-Editor (über das Pause-Menü, Taste ESC): pausiert die
-│                          Sim, live-Schreibzugriff auf agent.prompt mit clip()-Hardcap
+│                          vorausgefüllt, harte Grenzen erst bei Bestätigung;
+│                          Phase 15: vertikales Scrollen der Zeilenliste (Mausrad) mit Clamping, Auto-Scroll des
+│                          aktiven Felds bei Pfeil-/TAB-Navigation und Maus-Hit-Test inkl. Scroll-Versatz
+├── prompt_editor.py       Modaler Laufzeit-Prompt-Editor (über das Pause-Menü): pausiert die Sim;
+│                          Phase 15 zweistufig – Stufe 1 scrollbare Namensliste (Pfeile/Maus), ENTER/Klick öffnet Stufe 2:
+│                          großes Eingabefeld für genau einen Agenten mit umgebrochenem Prompt und vertikalem Scrollen
+│                          (Mausrad/PAGEUP-PAGEDOWN/Pfeile, geclampt); live-Schreibzugriff auf agent.prompt
+│                          mit clip()-Hardcap; ESC-Hierarchie: Editor -> Namensliste, Liste -> vollständig schließen
 ├── pause_menu.py          ESC-Pause-Menü während der Simulation (Taste ESC; Sim pausiert)
 │                          Weiter / Welt speichern & Hauptmenü / modaler Prompt-Editor öffnen
 ├── config_editor.py       Modales globales Settings-Menü (Hauptmenü → „Edit settings"):
@@ -72,14 +77,14 @@ gui/
 ├── menu.py                Menü Welt-Auswahl (neue/laden/überschreiben; ENTER=bestätigen)
 ├── renderer.py            Top-Down-Pixelart-Rendering: Tiles inkl. Beeren-Punkte, Tiere,
 │                          Agenten, Sprechblasen über sprechenden Agenten, Kamera-Follow; Welt-Viewport-Versatz via offset_x (linke Sidebar)
-└── hud.py                 Fixed linke Sidebar (Weltinfos zeilenweise + Agentenliste); draw_side_panel, Breite via side_panel_width()
+└── hud.py                 Fixed linke Sidebar (Weltinfos zeilenweise + Agentenliste); draw_side_panel, Breite via side_panel_width(); Phase 15: eigene Zeile pro HP/STA/HUNGER-Balken (vitals_bar_geometry(); Balken hinter dem breitestem Label), Rendering geclampt am unteren Sidebar-Rand; Prompt-Anzeige entfernt (läuft über Pause-Menü -> Prompt-Editor)
 ```
 
 ## Laufzeit-Pfade
 1. **GUI**: `python -m application` → `gui/app.py run(cfg)`: Menü (Slot 1–3:
    neue Welt / laden / explizit überschreiben; ENTER=Start, ESC=Beenden); für
    neue/überschriebene Welten dazwischen den Setup-Bildschirm (`gui/setup.py`:
-   Name/Geschlecht/Alter/Prompt je Agent vorausgefüllt, ENTER startet die Sim),
+   Name/Geschlecht/Alter/Prompt je Agent vorausgefüllt, ENTER startet die Sim; Phase 15: Zeilenliste scrollt per Mausrad, Auto-Scroll des aktiven Felds bei Navigation),
    dann Sim-Schleife mit Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave; ESC öffnet in der Simulation ein Pause-Menü
    (`gui/pause_menu.py`; Sim pausiert): Weiter / Welt speichern & Hauptmenü / modaler Prompt-Editor (`gui/prompt_editor.py`) für Live-Prompt-Edition;
    Hauptmenü → „Edit settings" öffnet das globale Settings-Menü (`gui/config_editor.py`),
@@ -105,7 +110,9 @@ Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.
 - `tests/test_core.py` – unittest-Suite (Welt-Erzeugung, Save/Load-Roundtrip,
   Regeln/Stabilität headless, Beerensammeln (Ernte/Nachwuchs/Determinismus),
   Roster-Spawn (Phase 9), Konversationen/Sprechblasen + Laufzeit-Prompt-Editor (Phase 10), Pause-Menü (ESC, Phase 12),
-  LLM-Client-Fallback, Fishing-Suite (Spawn/Drift/Fallback-Entscheidung/Hunger-Wiederherstellung/Cooldown)). Aufruf:
+  LLM-Client-Fallback, Fishing-Suite (Spawn/Drift/Fallback-Entscheidung/Hunger-Wiederherstellung/Cooldown), Phase-15-GUI-Fixes (Vitals-Balken-Geometrie ohne Overlap + Sidebar-Rand-Clamping,
+   Setup-Scroll: Wheel-Clamp/Auto-Scroll/Maus-Hit-Test mit Scroll-Versatz, zweistufiger Prompt-Editor inkl. Tipp nur im
+   Editor-Stadium und Wheel/PAGEUP-PAGEDOWN-Clamp)). Aufruf:
   `python -m unittest discover -s tests`.
 - NixOS: `flake.nix` + `shell.nix` liefern Python+SDL-Umgebung;
   `install.sh` prüft → richtet ein → startet (robust, nicht interaktiv).

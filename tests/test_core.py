@@ -864,7 +864,7 @@ class Phase15GuiFixesTests(unittest.TestCase):
         r_target = 4                                    # agent row inside the scrolled viewport (rows 2..5 visible)
         base = ws._row_fields(r_target)[1]["rect"]     # gender column field of that row (unshifted coordinates)
         dy = -ws.scroll * (ROW_H + ROW_GAP)
-        shifted = base + (0, dy)
+        shifted = base.move(0, dy)                   # .move() like in setup.py (classic pygame compatible)
         ev = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(shifted.x + 3, shifted.y + 3))
         ws.handle_event(ev)
         self.assertEqual((ws.r, ws.c), (r_target, 1))   # click at the *shifted* position selects that field

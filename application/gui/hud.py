@@ -100,13 +100,14 @@ def _draw_agent_entries(screen, world, selected_uid, font, rect: pygame.Rect, y:
         label_px = max(font.size(label)[0] for label, _v, _c in vitals)   # widest label sets the bar start
         bar_x_off, bar_w = vitals_bar_geometry(rect.w, label_px)
         for label, value, color in vitals:      # own line per row -> rows never overwrite each other
-            ls = font.render(label, True, (200, 195, 185))
-            if y + max(7, ls.get_height()) > rect.bottom:   # next row no longer fits in the sidebar -> stop
+            h = font.size(label)[1]                          # exact line height; keeps the bounds check *before* any render() so a cut-off row leaves no orphan output
+            if y + max(7, h) > rect.bottom:                 # next row no longer fits in the sidebar -> stop
                 return
+            ls = font.render(label, True, (200, 195, 185))
             screen.blit(ls, (rect.x + 8, y))
-            bar_y = y + max(0, (ls.get_height() - 7) // 2)   # centre the 7 px bar on its label line
+            bar_y = y + max(0, (h - 7) // 2)   # centre the 7 px bar on its label line
             _bar(screen, pygame.Rect(rect.x + bar_x_off, bar_y, bar_w, 7), value, color)
-            y += ls.get_height() + 1      # vertical step per row (was: all three bars at one y)
+            y += h + 1      # vertical step per row (was: all three bars at one y)
     # selected agent: last life-story events (prompt display removed in Phase 15 - it is edited via the pause menu)
     selected = next((a for a in world.agents if a.uid == selected_uid), None)
     if selected is None:

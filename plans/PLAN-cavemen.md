@@ -90,6 +90,7 @@ flake.nix / shell.nix / install.sh / config.yaml / STRUCTURE.md
   auf [5..70]); `Simulation.new_world(..., roster=None)` + `_spawn_from_roster`, Legacy-Autopfad
   unverändert. Verifiziert: Unit-Suite grün, headless 600 Ticks stabil, GUI-Smoke geht sauber
   Menü → Setup → Simulation (SDL dummy driver) und beendet sich ohne Fehler.
+- Phase 15 GUI-Fixes fertig & verifiziert (14.10.2026): Sidebar-Vitals ohne Überdeckung (vitals_bar_geometry, eigener Zeilenschritt pro HP/STA/HUNGER-Balken, Rendering geclampt am Sidebar-Rand; redundante Prompt-Anzeige entfernt), Setup-Scroll (Mausrad mit Clamping + Auto-Scroll bei Pfeil-/TAB-Navigation + Maus-Hit-Test mit Scroll-Versatz) und zweistufiger Prompt-Editor (Namensliste -> großes Eingabefeld pro Agent, Wheel/PAGEUP-PAGEDOWN/Pfeil-Scroll geclampt; ESC: Editor->Liste, Liste->schließen). Zusätzlich pygame-Versionssicherheit hergestellt: Rect.move() statt Rect+tuple und defensive unicode-Lesung in setup.py (klassisches pygame 2.6.0 und pygame-ce); drei dazugehörige Unit-Tests korrigiert. Suite 56/56 grün via `nix run .#default -- -m unittest discover -s tests` (Python 3.12.7, pygame 2.6.0); Doku README.md + STRUCTURE.md aktualisiert; Simulation/Weltzustand/Save-Format unverändert. (Fallen: `"".isprintable()` ist Python-semantisch True – reine Navigations-Tasten ohne unicode-Payload fallen dadurch in die Textedit-Sektion; daher explizite Leermengenprüfung + sichere Backspace-/Count-/Start-Row-Behandlung in setup.py.)
 
 ## 6. Phase 8 – Beeren sammeln (implementiert & verifiziert; P8.5 optional offen)
 - [x] P8.1 Ist-Analyse: `gather` existiert bereits als Aktion (+4 Sättigung/Tick auf
@@ -263,7 +264,7 @@ Welt angezeigt wird, um Lesbarkeit zu steigern." Ist-Analyse: aktuell zeichnen `
 - [x] P14.3 Verifikation: Unit-/Smoke-Test für die Layout-Fakten (Spalten-Breiten, keine Überlappung mit
       dem Canvas), GUI-Smoke über den Dummy-Video-Treiber (Menü → Setup → Sim → ESC-Pause → QUIT); Suite
       grün; Doku (README-Tasten/Ansicht + STRUCTURE.md) aktualisieren.
-- [ ] P14.4 Commit nach Nutzer-Bestätigung.
+- [x] P14.4 Commit nach Nutzer-Bestätigung.
 
 **Status Phase 14:** Abgeschlossen am 14.10.2026. hud.py umgeschrieben: draw_top_bar/draw_panel ersetzt durch feste linke Sidebar (draw_side_panel: Weltinfos zeilenweise + Agent-Panel), Geometrie-Clamping via side_panel_width() (MIN_PANEL_W=120, Canvas ≥80 px); renderer.draw_world(..., offset_x) verschiebt den gesamten Welt-Viewport nach rechts; Breite aus gui.side_panel_w in config.yaml und cavemen/config.py (Default 300 px). Verifikation: 3 neue Layout-Unit-Tests (SidePanelLayoutTests), Suite 48/48 grün, plus Headless-GUI-Smoke (SDL_VIDEODRIVER=dummy, ein voller Frame mit realer Simulation). Zusatzbefund: Tippfehler cavmen in Log-Strings von llm/client.py und in einem Test-Kommentar behoben.
 
@@ -283,23 +284,25 @@ Ist-Analyse (im Code verifiziert):
 - `gui/prompt_editor.py`: alle Namen samt vollständigen Prompts auf einem Bildschirm ohne
   individuelle Auswahl; lange Prompts übersteigen die Fensterhöhe ohne Scrollmöglichkeit.
 
-- [ ] P15.1 Overlap-Fix Side-Panel (`hud.py`): jede HP/STA/HUNGER-Zeile erhält einen eigenen
+- [x] P15.1 Overlap-Fix Side-Panel (`hud.py`): jede HP/STA/HUNGER-Zeile erhält einen eigenen
       vertikalen Schritt, der Statusbalken beginnt hinter dem breitesten Labeltext und wird
       pro Zeile zentriert; zeichnen am unteren Sidebar-Rand geclampt → kein Eintrag deckt mehr
       andere ab (reine Geometrie `vitals_bar_geometry()` unit-testbar).
-- [ ] P15.2 Prompt-Anzeige aus dem Side-Panel entfernen (Steuerung läuft über das Pause-Menü);
+- [x] P15.2 Prompt-Anzeige aus dem Side-Panel entfernen (Steuerung läuft über das Pause-Menü);
       "Life story" bleibt; Docstring von `hud.py` + STRUCTURE.md aktualisieren.
-- [ ] P15.3 Listenoverflow im Dialog zur neuen Welt (`setup.py`): vertikales Scrollen der
+- [x] P15.3 Listenoverflow im Dialog zur neuen Welt (`setup.py`): vertikales Scrollen der
       Zeilenliste via Maus-Rad, Auto-Scroll auf das aktive Feld bei Pfeil-/TAB-Navigation,
       Maus-Hit-Test mit Scroll-Versatz; Hinzeile um "Wheel=scroll" erweitert.
-- [ ] P15.4 Zweistufiger Prompt-Editor (`prompt_editor.py`): Stufe 1 = reine Namensliste
+- [x] P15.4 Zweistufiger Prompt-Editor (`prompt_editor.py`): Stufe 1 = reine Namensliste
       (Pfeiltasten/Maus); Klick oder ENTER auf einen Namen öffnet Stufe 2: großes Eingabefeld
       für genau diesen Agenten mit vollständigem, zeilenweise umgebrochenem Prompt; passt der
       Inhalt nicht in die Fensterhöhe, vertikales Scrollen (Mausrad/PAGEUP-PAGEDOWN/Ober-Unter);
       Live-Schreibzugriff mit clip()-Hardcap bleibt erhalten; ESC-Hierarchie: Editor → zurück zur
       Namensliste, Liste → komplett schließen.
-- [ ] P15.5 Verifikation: neue Unit-Tests (Vitals-Balken-Geometrie ohne Overlap, Setup-Scroll
+- [x] P15.5 Verifikation: neue Unit-Tests (Vitals-Balken-Geometrie ohne Overlap, Setup-Scroll
       Clamping/Auto-Scroll/Hit-Test mit Versatz, Zweistufen-Flow inkl. "Tipp nur im Editor",
       Wheel-Clamp); komplette Suite grün; README + STRUCTURE.md aktualisieren.
-- [ ] P15.6 Commit nach Nutzer-Bestätigung.
+- [ ] P15.6 Commit nach
+
+**Status Phase 15:** Abgeschlossen am 14.10.2026 – P15.1–P15.5 umgesetzt und verifiziert (Suite 56/56 grün; Details im Fortschrittsprotokoll). Der Commit selbst steht gemäß AGENTS.md-Regel auf der Nutzer-Bestätigung.
 
