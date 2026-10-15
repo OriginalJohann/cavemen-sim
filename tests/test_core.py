@@ -831,7 +831,7 @@ class Phase15GuiFixesTests(unittest.TestCase):
     # ---- P15.3 setup-screen scrolling -------------------------------------------
     @staticmethod
     def _small_setup():
-        cfg = base_config()                             # 10 agents -> count row + 10 rows + start row = 12 rows
+        cfg = base_config()                             # 10 agents -> count row + seed row (Phase 16) + 10 rows + start row = 13 rows
         ws = WorldSetup(cfg, 7)
         ws.win_w, ws.win_h = 800, 240                   # window too short: only (240-ROW_Y0)//(ROW_H+ROW_GAP)=4 rows fit
         return ws
@@ -853,7 +853,7 @@ class Phase15GuiFixesTests(unittest.TestCase):
             ws.handle_event(self.key_event(pygame.K_DOWN))
             self.assertGreaterEqual(ws.r, ws.scroll)     # cursor never left above the viewport ...
             self.assertTrue(ws.r < ws.scroll + vis)      # ... and never below it
-            if ws.r == ws.count + 1:                     # start row reached -> done (no wrap-around needed before that)
+            if ws.r == ws.count + 2:                    # start row reached (Phase 16 inserts the seed row above it) -> done (no wrap-around needed before that)
                 break
         self.assertEqual(ws.scroll, ws._max_scroll())    # end position is exactly the maximum scroll
 
@@ -929,6 +929,118 @@ class Phase15GuiFixesTests(unittest.TestCase):
                 self.assertGreater(r.y, prev_y)          # ... shifted purely by the scroll offset ...
             prev_y = r.y
             self.assertEqual(r.y, 130 + (i - ed.scroll_rows) * step)   # exact geometry behind clicks and drawing
+
+
+class Phase16SeedingTests(unittest.TestCase):
+    """Phase 16: user-enterable world seed on the setup screen (INSTRUCTIONS §2 "Seeding").
+
+    Covers the Seed field of WorldSetup (pre-fill, digit-only typing, backspace, cap),
+    the confirmation parsing (digits -> int, empty/invalid -> None = fresh random seed)
+    and end-to-end reproducibility: two Simulations created with the same seed must be
+    identical in terrain, berry layout, tribe spawn and initial animal herd.
+    """
+
+    @staticmethod
+    def key_event(key, unicode=None):
+        ev = pygame.event.Event(pygame.KEYDOWN, key=key)
+        if unicode is not None:
+            ev.unicode = unicode   # real pygame KEYDOWN events always carry .unicode
+        return ev
+
+    @staticmethod
+    def digit_event(ch: str):
+        """KEYDOWN event for one typed digit (proper K_<d> constant + unicode payload)."""
+        return pygame.event.Event(pygame.KEYDOWN, key=getattr(pygame, f"K_{ch}"), unicode=ch)
+
+    def setUp(self) -> None:
+        self.cfg = base_config()
+
+    # ---- setup screen ----------------------------------------------------------
+    def test_seed_row_sits_between_count_and_members_with_tab_order(self):
+        ws = WorldSetup(self.cfg, slot=1, kind="new")
+        ws._set_count(2)                                  # small tribe -> obvious row map (5 rows total)
+        self.assertEqual(len(ws._all_rows()), 5)         # count + seed + 2 members + start
+        keys_by_row = [row[0]["key"] for row in ws._all_rows()]   # first field of each row
+        self.assertEqual(keys_by_row, ["count", "seed", "name", "name", "start"])
+
+        # full TAB cycle walks every field exactly once and wraps around (navigation over the new rows_n)
+        visited = []
+        ws.r, ws.c = 0, 0
+        total_fields = sum(len(row) for row in ws._all_rows())
+        for _ in range(total_fields):
+            visited.append(ws._row_fields(ws.r)[ws.c]["key"])
+            self.assertIsNone(ws.handle_event(self.key_event(pygame.K_TAB)))
+        self.assertEqual(visited[:2], ["count", "seed"])  # seed is the second editable field of the form
+
+    def test_seed_typing_is_digit_only_capped_and_backspace_works(self):
+        ws = WorldSetup(self.cfg, slot=1, kind="new")
+        prefilled = int(ws.seed_text)                    # randomized quick-start suggestion per screen
+        self.assertTrue(0 < prefilled <= (1 << 30))      # same range World() uses for its random seed
+
+        ws.r, ws.c = 1, 0                               # move the cursor onto the Seed row
+        ws.seed_text = ""
+        for ch in "42":
+            self.assertIsNone(ws.handle_event(self.digit_event(ch)))
+        self.assertEqual(ws.seed_text, "42")
+        before = ws.seed_text
+        self.assertIsNone(ws.handle_event(self.key_event(pygame.K_a, unicode="a")))   # letters are ignored
+        self.assertEqual(ws.seed_text, before)
+        self.assertIsNone(ws.handle_event(self.key_event(pygame.K_BACKSPACE)))
+        self.assertEqual(ws.seed_text, "4")             # backspace clears the last digit
+
+        ws.seed_text = ""
+        for ch in "1234567890":                        # type far past ten digits ...
+            self.assertIsNone(ws.handle_event(self.digit_event(ch)))
+        self.assertEqual(len(ws.seed_text), 10)         # ... the field keeps max. ten (fits < 2**30)
+
+    def test_confirm_parses_seed_and_falls_back_on_empty_or_invalid(self):
+        ws = WorldSetup(self.cfg, slot=1, kind="new")
+        res = ws._confirm()
+        self.assertIsInstance(res["seed"], int)         # pre-filled suggestion is always a valid number
+        self.assertEqual(res["seed"], int(ws.seed_text))
+        self.assertEqual(len(res["roster"]), ws.count)  # roster semantics untouched by the seed row
+
+        ws.seed_text = ""                               # empty -> World() rolls a fresh random seed (legacy behaviour)
+        self.assertIsNone(ws._confirm()["seed"])
+        ws.seed_text = "abc"                           # non-numeric input is treated as "unspecified", never an error
+        self.assertIsNone(ws._confirm()["seed"])
+
+    # ---- reproducibility -------------------------------------------------------
+    def test_same_seed_reproduces_identical_world_tribe_and_animals(self):
+        roster = [{"name": "Ane", "gender": "f", "age_years": 20, "prompt": "quiet"},
+                  {"name": "Bor", "gender": "m", "age_years": 25, "prompt": "bold"}]
+        s1 = Simulation.new_world(self.cfg, slot=0, name="seedA", seed=42, llm_enabled=False, roster=roster)
+        s2 = Simulation.new_world(self.cfg, slot=0, name="seedB", seed=42, llm_enabled=False, roster=roster)
+        self.assertEqual(s1.world.tiles, s2.world.tiles)              # identical terrain ...
+        self.assertEqual(s1.world.berry_tiles, s2.world.berry_tiles)  # ... and berry-bush layout
+        self.assertEqual([(a.uid, a.x, a.y) for a in s1.world.agents],
+                         [(a.uid, a.x, a.y) for a in s2.world.agents])   # tribe spawn deterministic per seed
+        self.assertEqual([(type(a).__name__, a.x, a.y) for a in s1.world.animals],
+                         [(type(a).__name__, a.x, a.y) for a in s2.world.animals])   # initial prey herd too
+
+        s3 = Simulation.new_world(self.cfg, slot=0, name="seedC", seed=43, llm_enabled=False, roster=roster)
+        self.assertNotEqual(s3.world.tiles, s1.world.tiles)           # a different seed changes the map (deterministically)
+
+    # ---- menu observability ----------------------------------------------------
+    def test_menu_lists_saved_world_seed(self):
+        from application.gui.menu import MenuState   # noqa: E402  (lazy to keep module imports light)
+        tmpdir = tempfile.mkdtemp(prefix="cavemen_seed_test_")
+        cfg_path = os.path.join(tmpdir, "config.yaml")
+        try:
+            with open(cfg_path, "w", encoding="utf-8") as fh:
+                fh.write(f"worlds:\n    save_dir: {tmpdir}\n")      # isolated save dir: user data untouched
+            cfg = Config(cfg_path)
+            sim = Simulation.new_world(cfg, slot=1, name="seedworld", seed=987654321,
+                                       llm_enabled=False,
+                                       roster=[{"name": "Ane", "gender": "f", "age_years": 20, "prompt": ""}])
+            save_load.save_world(sim.world, cfg, 1)                 # seed is serialized by World.to_dict already
+            meta = save_load.list_slots(cfg).get(1)
+            self.assertEqual(meta["seed"], 987654321)               # ... and survives the save/load roundtrip
+            menu_state = MenuState(cfg)
+            labels = [label for label, _action in menu_state.items]
+            self.assertTrue(any("Seed 987654321" in l for l in labels))   # main menu reveals the seed at a glance
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 if __name__ == "__main__":

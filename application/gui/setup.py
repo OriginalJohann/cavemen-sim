@@ -1,12 +1,13 @@
 """Manual tribe creation screen ("setup") between menu and simulation.
 
 Up to ten cavemen are entered in a four-column form (Name | Gender | Age |
-Prompt) plus a count row and a start row. Every field is pre-filled with a
-deterministic suggestion derived from the world slot, so ENTER starts the
-simulation immediately or any field can be edited beforehand. Hard caps are
-enforced at confirmation time only: name <= 8 chars, age clamped into
-[child_until_years, death_age_limit], prompt clipped to init_max_chars -
-typing itself never truncates mid-word.
+Prompt) plus a count row, an editable Seed row and a start row. Every field is pre-filled with a
+suggestion (member rows deterministic per slot; the seed is one fresh random value per open screen),
+so ENTER starts the simulation immediately or any field can be edited beforehand. The Seed pins
+world generation to reproducible test runs (INSTRUCTIONS "Seeding"); an empty or non-numeric
+seed falls back to a new random seed at confirmation. Hard caps are enforced at confirmation
+time only: name <= 8 chars, age clamped into [child_until_years, death_age_limit], prompt
+clipped to init_max_chars - typing itself never truncates mid-word.
 
 Keys: arrows move between fields, TAB steps through all fields in reading
 order, +/- change the tribe size while the count field is active, plain typing
@@ -54,8 +55,12 @@ class WorldSetup:
         self.prompt_cap = int(cfg.get("agents.prompts.init_max_chars", 100))
         self.age_min = float(cfg.get("agents.age.child_until_years", 5))
         self.age_max = float(cfg.get("agents.age.death_age_limit", 70))
+        # Phase 16 (Seeding): editable world seed, pre-filled with one fresh random value per
+        # screen so the quick start works out of the box; an empty/invalid field falls back
+        # to a new random seed inside World() at confirmation.
+        self.seed_text = str(random.randrange(1 << 30))
         self.rows: list[dict] = [self._suggestion(i) for i in range(self.count)]
-        # active field as (row, column); row layout: 0=count, 1..count=agents, count+1=start
+        # active field as (row, column); row layout: 0=count, 1=seed, 2..count+1=agents, count+2=start
         self.r, self.c = 1, 0
         # Phase 15 overflow handling: the row list scrolls vertically when it no
         # longer fits into the window height; fallback size until draw() reports
@@ -84,15 +89,19 @@ class WorldSetup:
             self.rows.append(self._suggestion(len(self.rows)))   # fresh deterministic pre-fill
         del self.rows[n:]
         self.count = n
-        if not (0 <= self.r <= self.count + 1):                  # active field fell off-screen
-            self.r, self.c = min(max(0, self.r - 2), max(0, self.count)), 0
+        if not (0 <= self.r <= self.count + 2):                  # active field fell off-screen after shrinking the tribe
+            self.r, self.c = min(self.count + 1, max(1, self.r - 3)), 0   # land on an existing row (seed/member region)
         self._clamp_scroll()                                    # count changes shrink what fits into the window
 
     # ---- field geometry ------------------------------------------------------
     def _row_fields(self, r: int) -> list[dict]:
         """Ordered fields of one row with their screen rects."""
         y = ROW_Y0 + r * (ROW_H + ROW_GAP)
-        if r == 0 or r > self.count:         # count row / start row: single field
+        if r == 1:                             # Phase 16 seed row: pins reproducible world generation
+            return [{"key": "seed", "label": "Seed",
+                     "text": self.seed_text,
+                     "rect": pygame.Rect(ROW_X, y, COLS[3][1], ROW_H)}]
+        if r == 0 or r > self.count + 1:      # count row / start row: single field
             return [{"key": "count" if r == 0 else "start",
                      "label": "Count" if r == 0 else "Start",
                      "text": str(self.count) if r == 0 else "> Create tribe",
@@ -101,12 +110,12 @@ class WorldSetup:
         for c, (key, label) in enumerate(FIELDS):
             x_off, w = COLS[c]
             fields.append({"key": key, "label": label,
-                          "text": self.rows[r - 1][key],
+                          "text": self.rows[r - 2][key],   # member k sits on row index k+1 (seed occupies row 1)
                           "rect": pygame.Rect(ROW_X + x_off, y, w, ROW_H)})
         return fields
 
     def _all_rows(self) -> list[list[dict]]:
-        return [self._row_fields(r) for r in range(self.count + 2)]
+        return [self._row_fields(r) for r in range(self.count + 3)]   # count + seed + members + start
 
     # ---- Phase 15 overflow (vertical scroll of the row list) ------------------
     def _visible_row_count(self) -> int:
@@ -115,7 +124,7 @@ class WorldSetup:
 
     def _max_scroll(self) -> int:
         """Largest scroll index so every row (incl. count/start rows) stays reachable."""
-        return max(0, self.count + 2 - self._visible_row_count())
+        return max(0, self.count + 3 - self._visible_row_count())
 
     def _clamp_scroll(self) -> None:
         self.scroll = max(0, min(int(self.scroll), self._max_scroll()))
@@ -138,7 +147,7 @@ class WorldSetup:
         if event.type != pygame.KEYDOWN:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 dy = -self.scroll * (ROW_H + ROW_GAP)   # shift the visible row rects by the current scroll offset
-                first, last = self.scroll, min(self.count + 2, self.scroll + self._visible_row_count())
+                first, last = self.scroll, min(self.count + 3, self.scroll + self._visible_row_count())
                 for r in range(first, last):            # only rows inside the viewport are clickable
                     for c, field in enumerate(self._row_fields(r)):
                         if field["rect"].move(0, dy).collidepoint(event.pos):   # .move(): works in classic pygame AND pygame-ce (Rect + tuple only exists in pygame-ce)
@@ -148,7 +157,7 @@ class WorldSetup:
         key = event.key
         if key == pygame.K_ESCAPE:
             return {"kind": "cancel", "slot": self.slot}
-        rows_n = self.count + 2
+        rows_n = self.count + 3                          # count row + seed row + member rows + start row (Phase 16)
         if key == pygame.K_UP:
             self.r = (self.r - 1) % rows_n
         elif key == pygame.K_DOWN:
@@ -161,8 +170,8 @@ class WorldSetup:
             elif key == pygame.K_RIGHT:
                 self.c = (self.c + 1) % n_cols
                 return None
-        # keep the column valid for single-field rows after vertical moves
-        if self.r == 0 or self.r == rows_n - 1:
+        # keep the column valid for single-field rows after vertical moves (count & seed rows are single-field too)
+        if self.r in (0, 1) or self.r == rows_n - 1:
             self.c = 0
         elif self.c >= len(self._row_fields(self.r)):
             self.c = len(self._row_fields(self.r)) - 1
@@ -187,18 +196,24 @@ class WorldSetup:
             return None
         # ---- plain text editing of the active field --------------------------
         ch = getattr(event, "unicode", None) or ""   # defensive: tolerate KEYDOWN events without .unicode (as in prompt_editor.py)
-        if key == pygame.K_BACKSPACE:                # deletion needs no unicode payload and applies to agent rows only
-            if 0 < self.r <= self.count and field["text"]:     # count/start rows carry no editable text row -> skip safely
-                row = self.rows[self.r - 1]
+        if key == pygame.K_BACKSPACE:                # deletion needs no unicode payload; applies to seed and member rows
+            if field["key"] == "seed" and self.seed_text:     # Phase 16: clear the last digit of the seed value
+                self.seed_text = self.seed_text[:-1]
+            elif 2 <= self.r <= self.count + 1 and field["text"]:   # member rows only (count/seed/start carry no row entry)
+                row = self.rows[self.r - 2]                  # member k sits on row index k+1
                 row[field["key"]] = field["text"][:-1]
             return None
-        if self.r == 0 or self.r > self.count:      # single-field count/start row: nothing to edit, never index self.rows
+        if field["key"] in ("count", "start"):      # single-field count/start rows: nothing to edit, never index self.rows
             return None
         # note: in Python "".isprintable() is True, so the explicit empty check keeps pure navigation keys (no unicode payload) out of this section
         if not ch or not ch.isprintable() or ch == " ":    # control chars / spaces ignored in fields
             return None
         cur = field["text"]
-        row = self.rows[self.r - 1]
+        if field["key"] == "seed":                # Phase 16: digits only, max. ten (the default random range is < 2**30)
+            if ch.isdigit():
+                self.seed_text = (cur + ch)[:10]   # keep the first ten digits; overflow shifts nothing, it truncates
+            return None
+        row = self.rows[self.r - 2]               # only member rows reach this point now
         if field["key"] == "name":                 # backspace already handled above; remaining branches append printable chars only
             row["name"] = cur + ch               # hard cap applied only at confirmation
         elif field["key"] == "gender":           # single letter m/f, replaces content
@@ -228,7 +243,11 @@ class WorldSetup:
             age_years = min(self.age_max, max(self.age_min, age_years))   # clamp into range
             roster.append({"name": name, "gender": gender, "age_years": age_years,
                           "prompt": clip(str(row["prompt"]), self.prompt_cap)})
-        return {"kind": self.kind, "slot": self.slot, "roster": roster}
+        # Phase 16 (Seeding): digits-only seed -> reproducible world generation; an empty or
+        # non-numeric field yields None so World() rolls a fresh random seed as before.
+        seed_text = str(self.seed_text).strip()
+        seed = int(seed_text) if seed_text.isdigit() else None
+        return {"kind": self.kind, "slot": self.slot, "seed": seed, "roster": roster}
 
     # ---- drawing -------------------------------------------------------------
     def draw(self, screen, font_title, font_item) -> None:

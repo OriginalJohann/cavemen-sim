@@ -36,4 +36,4 @@
 
 * **Visualisierung:** Echtzeit-Beobachtung der Simulation in einer Top-Down-Ansicht.
 * **Grafikstil:** Pixelgrafik (charmanter Retro-Look).
-* **UI & Steuerung:** Hauptmenü beim Start, Anzeige von Agenten-Status (Hunger, HP, Ausdauer, Alter, Prompt, Profil) und Welt-Informationen (Wetter, Tageszeit, Tiere), Pausenmenü während Simulation pausiert das Spiel, gibt Möglichkeit zur Rückkehr ins Hauptmenü und erlaubt es die Prompts der Cavemen anzupassen.
+* **UI & Steuerung:** Hauptmenü beim Start, Anzeige von Agenten-Status (Hunger, HP, Ausdauer, Alter, Profil) und Welt-Informationen (Wetter, Tageszeit, Tiere), Pausenmenü während Simulation pausiert das Spiel, gibt Möglichkeit zur Rückkehr ins Hauptmenü und erlaubt es die Prompts der Cavemen anzupassen.

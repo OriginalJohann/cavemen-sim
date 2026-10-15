@@ -11,7 +11,8 @@ Statuslegende: [ ] offen | [/] in Arbeit | [x] fertig
 
 ## 2. Zielstruktur
 ```
-cavemen/            Python-Paket (Details siehe STRUCTURE.md)
+application/      Python-Paket, ehemals "cavemen/" (Umbenennung Commit 488d7aa;
+                  die App behält den Namen Cavemen) – Details siehe STRUCTURE.md
 ├── __main__.py     Einstieg + CLI (--headless N --no-llm)
 ├── config.py       zentrale Konfiguration (config.yaml + Defaults)
 ├── simulation/     game_loop.py, rules.py
@@ -54,7 +55,8 @@ flake.nix / shell.nix / install.sh / config.yaml / STRUCTURE.md
 - [x] P7.1 Unit-/Smoke-Tests headless (tests/test_core.py, unittest grün)
 - [x] P7.2 End-to-end ohne LLM (Fallback) verifiziert: Headless 600 + 3000 Ticks stabil
 - [x] P7.3 Save/Load-Roundtrip (inkl. GUI-Autosave im Smoke-Test, tick-600-State valid)
-- [ ] P7.4 tmp/-Cleanup **nach** Nutzer-Bestätigung des Commits (steht noch aus)
+- [x] P7.4 tmp/-Cleanup nach Nutzer-Bestätigung der Commits – erledigt: `./tmp/` existiert
+      nicht mehr (Venv-/Smoke-/Debug-Skripte entfernt; `tmp/` verbleibt in .gitignore)
 
 ## 4. Annahmen (bestätigt vom Nutzer, siehe Chat)
 1. Default-LLM: LM-Studio `http://127.0.0.1:1234/v1`, Modell in config.yaml.
@@ -65,6 +67,9 @@ flake.nix / shell.nix / install.sh / config.yaml / STRUCTURE.md
 
 ## 5. Fortschrittsprotokoll
 - Phase 0–7 implementiert; alle Dateien existieren und sind lauffähig.
+- Hinweis Config-Werte: Die konkreten Zahlen in `config.yaml` (u. a. Beeren-Ertrag/-Nachwuchs,
+  Fenstergröße, LLM-Port) spiegeln die Ergebnisse späterer Test-/Balancing-Läufe der Software;
+  ältere Plan-Zahlen sind historische Stände zum Implementierungszeitpunkt und nicht mehr aktuell.
 - Balancierung final: Tier-Cap 12→26 (config.yaml + Defaults), Tierspeeds runter
   (Mammut .3→.2, Bär .4→.25, Wolf .7→.45, Triceratops .5→.3), Jagd-Ertrag
   +25→+30 Sättigung pro Treffer, Beute-Suchradius im Fallback 15→48 Tiles,
@@ -92,21 +97,31 @@ flake.nix / shell.nix / install.sh / config.yaml / STRUCTURE.md
   Menü → Setup → Simulation (SDL dummy driver) und beendet sich ohne Fehler.
 - Phase 15 GUI-Fixes fertig & verifiziert (14.10.2026): Sidebar-Vitals ohne Überdeckung (vitals_bar_geometry, eigener Zeilenschritt pro HP/STA/HUNGER-Balken, Rendering geclampt am Sidebar-Rand; redundante Prompt-Anzeige entfernt), Setup-Scroll (Mausrad mit Clamping + Auto-Scroll bei Pfeil-/TAB-Navigation + Maus-Hit-Test mit Scroll-Versatz) und zweistufiger Prompt-Editor (Namensliste -> großes Eingabefeld pro Agent, Wheel/PAGEUP-PAGEDOWN/Pfeil-Scroll geclampt; ESC: Editor->Liste, Liste->schließen). Zusätzlich pygame-Versionssicherheit hergestellt: Rect.move() statt Rect+tuple und defensive unicode-Lesung in setup.py (klassisches pygame 2.6.0 und pygame-ce); drei dazugehörige Unit-Tests korrigiert. Suite 56/56 grün via `nix run .#default -- -m unittest discover -s tests` (Python 3.12.7, pygame 2.6.0); Doku README.md + STRUCTURE.md aktualisiert; Simulation/Weltzustand/Save-Format unverändert. (Fallen: `"".isprintable()` ist Python-semantisch True – reine Navigations-Tasten ohne unicode-Payload fallen dadurch in die Textedit-Sektion; daher explizite Leermengenprüfung + sichere Backspace-/Count-/Start-Row-Behandlung in setup.py.)
 
-## 6. Phase 8 – Beeren sammeln (implementiert & verifiziert; P8.5 optional offen)
+## 6. Phase 8 – Beeren sammeln + Fischen (abgeschlossen, inkl. ehemals optionalem Fischfang)
 - [x] P8.1 Ist-Analyse: `gather` existiert bereits als Aktion (+4 Sättigung/Tick auf
       Gras/Wald, Fallback zielt auf Wald-Tiles im Radius ~8); Grundfunktion erfüllt die
       Anforderung "Essen ohne jagen" aus INSTRUCTIONS.md.
 - [x] P8.2 (Empfohlen) Explizite Beerensäume: prozedural deterministisch auf
       Wald-/Gras-Tiles, Menge pro Tile + Nachwuchs nach N Ticks; Config-Bereich
-      `worlds.gather.*` (max_menge=5, ertrag +9 Sättigung pro Sammeln, regrow_ticks
-      ≈ 14 Tage); ohne Beeren kleiner flacher Bonus (+2 statt +4).
+      `worlds.gather.*` (historisch zum Implementierungszeitpunkt max_menge=5, ertrag
+      +9 Sättigung pro Sammeln, regrow_ticks ≈ 14 Tage); ohne Beeren kleiner flacher
+      Bonus (+2 statt +4). Die Werte wurden später in Test-/Balancing-Läufen angepasst;
+      aktueller Stand in config.yaml: berry_count=14, max_amount=6, gather_yield_hunger=8.0,
+      regrow_ticks=48 (= 2 Sim-Tage), flat_gather_bonus=2.0.
 - [x] P8.3 Fallback bevorzugt Beerensäume; Renderer zeichnet Beeren-Punkte auf den
       Tile-Kacheln; HUD Welt-Leiste zeigt "Beeren: N"; Save/Load-Roundtrip + Unit-Tests
       (Ernte, Nachwuchs, Determinismus).
 - [x] P8.4 Headless-Revalidierung 600 Ticks nach Balancierung (Sammel-Faktor ist
       Stabilitätsstütze gegen Verhungern); 3000-Tick-Stabilität bereits Phase 7 belegt.
-- [ ] P8.5 (Optional) Fischen an der Wasserfläche als zweite Nahrungsquelle
-      (INSTRUCTIONS.md-Namensbeispiel "Beeren oder Fische").
+- [x] P8.5 Fischen an der Wasserfläche als zweite Nahrungsquelle – inzwischen umgesetzt
+      (Commit 96dca5b, "Fischfang als neue Nahrungsquelle"): Fisch-Typ im Tierregelsystem
+      (`animals/`, aquatisch, driftet im See), Aktion `fish` in `_step_agent` mit
+      Cooldown/Erfolgschance über Config-Bereich `agents.fishing.*`, HUD-Zeile "Fish: N",
+      Fallback-Auswahl und eigene FishingTests-Suite (Spawn nur im Wasser, Drift/Flucht,
+      Hunger-Wiederherstellung, Cooldown). Damit ist das INSTRUCTIONS.md-Beispiel
+      "Beeren oder Fische" vollständig abgedeckt.
+
+**Status Phase 8:** Abgeschlossen – inkl. des ehemals optionalen Fischfangs (P8.5).
 
 ## 7. Phase 9 – Manuelle Stamms-Erstellung im Menü (vom Nutzer angefordert)
 - [x] P9.1 Anforderungsaufnahme: Anzahl + je Agent Name/Geschlecht/**Alter**/Prompt händisch,
@@ -154,9 +169,10 @@ Vorschlägen (Phase 9), Sim-seitige Prompt-Anpassung, Menü/Agenten-Status/Welt-
 sind bereits erfüllt. Zwei echte Lücken wurden geschlossen:
 - [x] P10.1 Gap-Analyse INSTRUCTIONS.md vs. Code; fehlende Punkte identifiziert: inter-agentliche
       Konversationen mit Sprechblasen (§3 "Konversationen") und nutzerseitige Prompt-Anpassung zur
-      Laufzeit (zweiter Halbsatz von §3 "Laufzeit-Anpassung"). Fischen bleibt bewusst optional
-      (P8.5), da das Anforderungsbeispiel "z.B. Sammeln von Beeren oder Fischen" durch die Beeren
-      bereits erfüllt ist.
+      Laufzeit (zweiter Halbsatz von §3 "Laufzeit-Anpassung"). Fischen wurde damals bewusst als
+      optional zurückgestellt (P8.5), da das Anforderungsbeispiel "z.B. Sammeln von Beeren oder
+      Fischen" durch die Beeren bereits erfüllt ist – umgesetzt wurde es später in Commit
+      `96dca5b` (12.10.2026), siehe Phase 8.
 - [x] P10.2 `simulation/conversations.py`: max. ein Agenten-Paar pro Tick innerhalb konfigurierbarer
       Manhattan-Distanz, Wahrscheinlichkeit/Cooldown/Bubble-Dauer via neuem Config-Bereich
       `agents.conversation.*` (config.yaml + Defaults); deterministische Dialog-Pools über den seeded
@@ -209,10 +225,12 @@ die Welt speichern und ins Hauptmenü zurückkehren, oder Prompts bearbeiten (al
 - [x] P12.5 Verifikation: Unit-Suite grün (38 Tests, 0.85 s, Exit 0). WICHTIGER BEFUND:
       `tests/test_core.py` Zeile 585 enthielt den Tippfehler `from cavmen.gui.pause_menu`
       (ein 'e' fehlte – Rest des abgebrochenen letzten Jobs); dadurch war die Suite bei jedem
-      Start auf import-level rot. Fix: korrekt nach `cavemen.gui...`. Da die Shell-Namespace-
+      Start auf import-level rot. Fix: korrekt nach `application.gui...` (damals noch vor der
+      Paket-Umbenennung Cavemen → application, Commit 488d7aa). Da die Shell-Namespace-
       Name-Lookups auf alten Inodes weiterhin ENOENT liefern, lief der Lauf über eine frische
       Byte-identische Kopie in `./tmp/run` mit neu angelegtem `./tmp/venv` (Nix-Python 3.14.7 +
-      pygame-ce 2.5.8 via Store-pip). Committet als `ad2c766` (12.10.2026); tmp/-Cleanup steht mit P7.4 noch aus.
+      pygame-ce 2.5.8 via Store-pip). Committet als `ad2c766` (12.10.2026); das darauf folgende
+      tmp/-Cleanup ist mit P7.4 abgeschlossen.
 
 ## 11. Phase 13 – Konversationen: Info-Austausch über Nahrungsquellen (angefordert am 12.10.2026, abgeschlossen)
 Quelle: Nutzer-Ergänzung in INSTRUCTIONS.md §3 ("Konversationen"): "Sie sollen sich gegenseitig
@@ -223,7 +241,8 @@ Ist-Analyse (Stand 12.10.2026): `simulation/conversations.py` kennt drei Pools (
 vager "berries around here!", _WEATHER_), Zeilen werden über einen pro-Tick seeded RNG (`{seed}-chat-{tick}`)
 gezogen; LLM-Option via `LLMClient.conversation_line(speaker, listener)` (Strict-JSON). Welt hält die
 Büsche in `world.berry_tiles: {(x, y): menge > 0}` (~14 Büsche aus `worlds.gather.berry_count`); Fischen/P8.5
-ist eine zweite potenzielle Nahrungsquelle für künftige Zeilen.
+ist eine zweite potenzielle Nahrungsquelle für künftige Zeilen (inzwischen umgesetzt via Commit
+`96dca5b`, siehe Phase 8 – aktuelle Food-Hint-Zeilen nennen nur Beeren, Fisch-Hints offen).
 - [x] P13.1 Design festgelegt: Richtungsangabe (Himmelsricht-Wort) + Entfernung in Tiles; nächster Busch =
       max Menge, bei Gleichstand geringste Manhattan-Distanz zu beiden Agenten, dann lexikographische
       Tile-Reihenfolge (`_nearest_food_source`, deterministisch je Seed); Trigger: Speaker oder Listener mit
@@ -239,17 +258,19 @@ ist eine zweite potenzielle Nahrungsquelle für künftige Zeilen.
       Einhaltungen, Gleichstandstiebreak), Hint-Zeilen (Format/Hunger-Schwelle) + A/B-Verifizierung: Conversation ON
       vs OFF über 600 Ticks → identische Weltzustände auf allen Sample-Punkten (Seeds 0–8, inkl. Seeds mit
       überlebendem Stamm; Sprechblasen sind reine Anzeige).
-- [x] P13.5 Doku (STRUCTURE.md + Plan); Commit nach Nutzer-Bestätigung (offen).
+- [x] P13.5 Doku (STRUCTURE.md + Plan); Commit nach Nutzer-Bestätigung: `7ba5e4a`
+      – "Phase 13 – Konversationen teilen Nahrungsquellen-Infos";
+      der zugehörige Wetter-Regressions-Fix wurde separat in Commit `c70cbeb` (14.10.2026) nachgezogen.
 
 **Status Phase 13:** Abgeschlossen am 12.10.2026, Unit-Tests grün, A/B-Lauf bestätigt Nicht-Einfluss auf
-Regeln/Weltzustand. **Zusatzbefund während der Verifikation (außerhalb des P13-Spektrums):** `_pick_weather` in
+Regeln/Weltzustand; Committet als `7ba5e4a` (Commit-Datum laut Git-Historie 14.10.2026). **Zusatzbefund während der Verifikation (außerhalb des P13-Spektrums):** `_pick_weather` in
 `rules.py` fehlte seit Commit `96dca5b` die `break`-Anweisung nach dem gewichteten Roll – dadurch landete jeder
 Wetter-Roll auf dem letzten Konfig-State ("storm") und das Wetter stand permanent, was zu frühem Verhungern des
 Stamms in Headless-Läufen führte. Behoben durch Wiederherstellung der `break` (Original-Verhalten von Commit
 `0526b8a`, identisch zur Referenzimplementierung `Weather.step`) + neuer Regressionstest
 `test_weather_state_machine_cycles_across_states` in `tests/test_core.py`.
 
-## 12. Phase 14 – Weltinfos-Panel links neben dem Canvas (angefordert am 12.10.2026, noch nicht implementiert)
+## 12. Phase 14 – Weltinfos-Panel links neben dem Canvas (angefordert am 12.10.2026, abgeschlossen am 14.10.2026)
 Anforderung: "Die Anzeige der Weltinformationen soll links neben dem Canvas platziert werden, in dem die
 Welt angezeigt wird, um Lesbarkeit zu steigern." Ist-Analyse: aktuell zeichnen `gui/hud.py::draw_top_bar`
 (eine einzelne Zeile oben über/durch das Canvas: Tag/Wetter/Stamm/Tiere/Fische/Beeren) und `draw_panel`
@@ -264,9 +285,9 @@ Welt angezeigt wird, um Lesbarkeit zu steigern." Ist-Analyse: aktuell zeichnen `
 - [x] P14.3 Verifikation: Unit-/Smoke-Test für die Layout-Fakten (Spalten-Breiten, keine Überlappung mit
       dem Canvas), GUI-Smoke über den Dummy-Video-Treiber (Menü → Setup → Sim → ESC-Pause → QUIT); Suite
       grün; Doku (README-Tasten/Ansicht + STRUCTURE.md) aktualisieren.
-- [x] P14.4 Commit nach Nutzer-Bestätigung.
+- [x] P14.4 Commit nach Nutzer-Bestätigung: `6b7345e` (14.10.2026) – "Phase 14: fixed left sidebar for world info + canvas offset (offset_x)".
 
-**Status Phase 14:** Abgeschlossen am 14.10.2026. hud.py umgeschrieben: draw_top_bar/draw_panel ersetzt durch feste linke Sidebar (draw_side_panel: Weltinfos zeilenweise + Agent-Panel), Geometrie-Clamping via side_panel_width() (MIN_PANEL_W=120, Canvas ≥80 px); renderer.draw_world(..., offset_x) verschiebt den gesamten Welt-Viewport nach rechts; Breite aus gui.side_panel_w in config.yaml und cavemen/config.py (Default 300 px). Verifikation: 3 neue Layout-Unit-Tests (SidePanelLayoutTests), Suite 48/48 grün, plus Headless-GUI-Smoke (SDL_VIDEODRIVER=dummy, ein voller Frame mit realer Simulation). Zusatzbefund: Tippfehler cavmen in Log-Strings von llm/client.py und in einem Test-Kommentar behoben.
+**Status Phase 14:** Abgeschlossen am 14.10.2026. hud.py umgeschrieben: draw_top_bar/draw_panel ersetzt durch feste linke Sidebar (draw_side_panel: Weltinfos zeilenweise + Agent-Panel), Geometrie-Clamping via side_panel_width() (MIN_PANEL_W=120, Canvas ≥80 px); renderer.draw_world(..., offset_x) verschiebt den gesamten Welt-Viewport nach rechts; Breite aus gui.side_panel_w in config.yaml und application/config.py (damals noch cavmen/, Default 300 px). Verifikation: 3 neue Layout-Unit-Tests (SidePanelLayoutTests), Suite 48/48 grün, plus Headless-GUI-Smoke (SDL_VIDEODRIVER=dummy, ein voller Frame mit realer Simulation). Zusatzbefund: Tippfehler cavmen in Log-Strings von llm/client.py und in einem Test-Kommentar behoben.
 
 
 ## 13. Phase 15 – GUI-Bugfixes & UX-Verbesserungen (angefordert am 14.10.2026)
@@ -302,7 +323,19 @@ Ist-Analyse (im Code verifiziert):
 - [x] P15.5 Verifikation: neue Unit-Tests (Vitals-Balken-Geometrie ohne Overlap, Setup-Scroll
       Clamping/Auto-Scroll/Hit-Test mit Versatz, Zweistufen-Flow inkl. "Tipp nur im Editor",
       Wheel-Clamp); komplette Suite grün; README + STRUCTURE.md aktualisieren.
-- [ ] P15.6 Commit nach
+- [x] P15.6 Commit nach Nutzer-Bestätigung: `d0ad486` (14.10.2026) – "Phase 15: GUI-Fixes – Sidebar-Vitals ohne Overlap, Setup-Scroll, zweistufiger Prompt-Editor; pygame-Versionssicherheit (.move(), unicode-defensiv), isprintable('')-Fix; Doku + Tests aktualisiert (56/56 grün)".
 
-**Status Phase 15:** Abgeschlossen am 14.10.2026 – P15.1–P15.5 umgesetzt und verifiziert (Suite 56/56 grün; Details im Fortschrittsprotokoll). Der Commit selbst steht gemäß AGENTS.md-Regel auf der Nutzer-Bestätigung.
+**Status Phase 15:** Abgeschlossen am 14.10.2026 – P15.1–P15.5 umgesetzt und verifiziert (Suite 56/56 grün; Details im Fortschrittsprotokoll); Committet als `d0ad486`.
 
+
+
+## 16. Phase 16 – Seeding bei Welt-Erstellung (angefordert am 15.10.2026)
+Anforderung (INSTRUCTIONS.md §2 "Seeding"): beim Erstellen einer Welt soll ein Seed eingegeben werden können, um die Generierung konsistent/reproduzierbar zu machen – leichter testbar als jedes Mal eine neue zufällige Welt.
+Ist-Analyse: Die Welt-Generierung war bereits seed-basiert (`World(cfg, seed=...)`, deterministisch; fehlender Seed ⇒ frischer Zufallsseed), aber der User konnte den Seed nirgends eingeben – GUI-Setup und CLI erzeugten stets neue Zufallswelten.
+- [x] P16.1 `gui/setup.py`: neue editierbare **Seed-Zeile** (Zeilenindex 1) zwischen Anzahl- und Agenten-Zeilen; deterministisch pro Screen vorausgefüllt mit einem frischen Zufallswert (`random.randrange(1 << 30)`), sodass Schnellstart via ENTER sofort reproducible ist; Ziffern-Eingabe mit Backspace und hartem Cap auf max. 10 Stellen (passt sicher in `< 2**30`); leer/ungültig ⇒ `None` = frischer Zufallsseed wie bisher; `_confirm()` liefert zusätzlich `"seed"` (int|None).
+- [x] P16.2 `gui/app.py`: `_start_simulation(..., seed=...)` akzeptiert den Seed und leitet ihn an `Simulation.new_world` weiter (neue & überschriebene Welten); der Load-Pfad bleibt unverändert. Alle bestehenden Callsites in app.py mit Keyword-Argumenten aktualisiert.
+- [x] P16.3 CLI: neues Argument **`--seed N`** (`__main__.py`, `int`) für reproducible Welt-Erzeugung im Headless-/GUI-Modus – deterministische Reproduktion auch ohne GUI.
+- [x] P16.4 Beobachtbarkeit: Seed wird im Hauptmenü bei Load-Items angezeigt ("Load World 3 – <name> · Day X – Seed N"); dazu liefert `save_load.list_slots()` das gespeicherte `"seed"` aus dem Save (bereits via `World.to_dict` serialisiert, kein neues Save-Format).
+- [x] P16.5 Verifikation: 5 neue Unit-Tests (`Phase16SeedingTests`: Seed-Zeile + TAB-Reihenfolge, Ziffern-Cap/Backspace, Confirm-Parsing mit Fallback auf None, identische Simulation bei gleichem Seed für Tiles/Beeren/Stamm/Tiere inkl. Gegenprüfung mit anderem Seed, Menü-Anzeige des gespeicherten Seeds); bestehende Phase-15-Layout-/Navigationstests an die neue Zeilenanordnung angepasst (Start-Zeile jetzt `count + 2`). Suite **61/61 grün** via `nix run .#default -- -m unittest discover -s tests` (Python 3.12.7, pygame 2.6.0). Live-Check: zwei Headless-Läufe mit gleichem Seed byte-identisch, Lauf ohne Seed weicht ab. Doku README.md + STRUCTURE.md aktualisiert (Feature-Liste, CLI-Tabelle `--seed N`, Test-Zähler, Setup-/Headless-Beschreibungen).
+
+**Status Phase 16:** Abgeschlossen am 15.10.2026 – P16.1–P16.5 umgesetzt und verifiziert (Suite 61/61 grün, Live-Reproduzierbarkeit nachgewiesen); wartet auf Nutzer-Bestätigung zum Commit.

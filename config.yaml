@@ -78,7 +78,7 @@ animals:
     triceratops: {weight: 2, speed: 0.3, aggro_chance: 0.10, hunt_damage: 18, size: 3 }  # dinosaur (procedural)
     fish:        { weight: 2, speed: 0.6, aggro_chance: 0.0, hunt_damage: 4,  size: 1 }   # aquatic prey drifting in the lake
 GUI:
-  window_w: 2000
-  window_h: 2000
+  window_w: 800
+  window_h: 800
   tile_px: 16
   side_panel_w: 300   # Breite des linken Weltinfos-/Agenten-Sidebars (px)

@@ -33,7 +33,8 @@ class MenuState:
         for slot in range(1, max_worlds + 1):
             if slot in slots:
                 meta = slots[slot]
-                label = f"Load World {slot} ({meta['name']}, Tick {meta['tick']})"
+                # Phase 16 (Seeding): show the world generation seed so reproducible runs are verifiable at a glance
+                label = f"Load World {slot} ({meta['name']}, Tick {meta['tick']}, Seed {meta.get('seed', '?')})"
                 self.items.append((label, {"kind": "load", "slot": slot}))
                 overwrite = f"Overwrite slot {slot} (explicit)"
                 self.items.append((overwrite, {"kind": "overwrite", "slot": slot}))

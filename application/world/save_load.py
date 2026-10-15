@@ -36,6 +36,7 @@ def list_slots(cfg):
             result[slot] = {
                 "name": data.get("name", f"world_{slot}"),
                 "tick": int(data.get("tick", 0)),
+                "seed": data.get("seed"),   # world generation seed (Phase 16), shown in the main menu
                 "agents_alive": sum(1 for a in data.get("agents", []) if a.get("alive")),
             }
         except Exception:

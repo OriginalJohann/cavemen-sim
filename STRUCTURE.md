@@ -15,7 +15,7 @@ fällt auf `llm/fallback.py` zurück – die Simulation crashet nie und blockt n
 ```
 application/
 ├── __init__.py            Paketmarker
-├── __main__.py            Einstieg: CLI (GUI-Default, --headless N, --no-llm, --debug-llm)
+├── __main__.py            Einstieg: CLI (GUI-Default, --headless N, --no-llm, --debug-llm, --seed)
 ├── config.py              Config-Klasse: config.yaml + eingebauten Defaults
 │                          (Schwellwerte dupliziert, damit das Spiel auch ohne yaml startet)
 │                          update_config_values(): In-Place-YAML-Save für Zwei-Level-Keys,
@@ -60,10 +60,12 @@ gui/
 ├── app.py                 App-Loop: Zustände Menü → Setup (nur bei neuer/überschriebener Welt)
 │                          → Sim; Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave
 ├── setup.py               Manuelle Stamms-Erstellung (WorldSetup): 4-Spalten-Formular
-│                          Name/Geschlecht/Alter/Prompt + Anzahl-/Start-Zeile; deterministisch
+│                          Name/Geschlecht/Alter/Prompt + Seed-, Anzahl- und Start-Zeile; deterministisch
 │                          vorausgefüllt, harte Grenzen erst bei Bestätigung;
 │                          Phase 15: vertikales Scrollen der Zeilenliste (Mausrad) mit Clamping, Auto-Scroll des
-│                          aktiven Felds bei Pfeil-/TAB-Navigation und Maus-Hit-Test inkl. Scroll-Versatz
+│                          aktiven Felds bei Pfeil-/TAB-Navigation und Maus-Hit-Test inkl. Scroll-Versatz;
+│                          Phase 16: editierbare Seed-Zeile (Ziffern, max. 10 Stellen, leer = frischer Zufallsseed)
+│                          für reproducible Weltgenerierung; _confirm() liefert seed (int|None)
 ├── prompt_editor.py       Modaler Laufzeit-Prompt-Editor (über das Pause-Menü): pausiert die Sim;
 │                          Phase 15 zweistufig – Stufe 1 scrollbare Namensliste (Pfeile/Maus), ENTER/Klick öffnet Stufe 2:
 │                          großes Eingabefeld für genau einen Agenten mit umgebrochenem Prompt und vertikalem Scrollen
@@ -84,14 +86,14 @@ gui/
 1. **GUI**: `python -m application` → `gui/app.py run(cfg)`: Menü (Slot 1–3:
    neue Welt / laden / explizit überschreiben; ENTER=Start, ESC=Beenden); für
    neue/überschriebene Welten dazwischen den Setup-Bildschirm (`gui/setup.py`:
-   Name/Geschlecht/Alter/Prompt je Agent vorausgefüllt, ENTER startet die Sim; Phase 15: Zeilenliste scrollt per Mausrad, Auto-Scroll des aktiven Felds bei Navigation),
+   Name/Geschlecht/Alter/Prompt je Agent + Seed-Zeile vorausgefüllt (leer = frischer Zufallsseed), ENTER startet die Sim; Phase 15: Zeilenliste scrollt per Mausrad, Auto-Scroll des aktiven Felds bei Navigation),
    dann Sim-Schleife mit Takt-Pacing, Autosave alle N Ticks + F5-Manuallsave; ESC öffnet in der Simulation ein Pause-Menü
    (`gui/pause_menu.py`; Sim pausiert): Weiter / Welt speichern & Hauptmenü / modaler Prompt-Editor (`gui/prompt_editor.py`) für Live-Prompt-Edition;
    Hauptmenü → „Edit settings" öffnet das globale Settings-Menü (`gui/config_editor.py`),
    ENTER speichert In-Place in config.yaml (Kommentare bleiben erhalten), ESC bricht ab;
    Renderer (Kamera folgt dem Stamm) inkl. Sprechblasen über sprechenden Agenten
    (`simulation/conversations.py`) + fixed linke Sidebar für Weltinfos & Agenten (gui.side_panel_w, Default 300 px); Canvas wird rechts versetzt gezeichnet.
-2. **Headless**: `python -m application --headless TICKS [--no-llm] [--debug-llm]` → periodische
+2. **Headless**: `python -m application --headless TICKS [--no-llm] [--debug-llm] [--seed N]` → periodische
    Snapshot-Zeilen auf stdout (Tests/Demo, kein GUI-Bildschirm nötig).
 3. **LLM-Schleife pro Tick**: für jede fällige Entscheidung ruft die Sim den
    Client ab; ungültige/fehlende Antwort → Fallbackregel. Charakter-Erzeugung
@@ -112,7 +114,7 @@ Werte haben Defaults in `config.py`; die yaml kann jede Menge überschreiben.
   Roster-Spawn (Phase 9), Konversationen/Sprechblasen + Laufzeit-Prompt-Editor (Phase 10), Pause-Menü (ESC, Phase 12),
   LLM-Client-Fallback, Fishing-Suite (Spawn/Drift/Fallback-Entscheidung/Hunger-Wiederherstellung/Cooldown), Phase-15-GUI-Fixes (Vitals-Balken-Geometrie ohne Overlap + Sidebar-Rand-Clamping,
    Setup-Scroll: Wheel-Clamp/Auto-Scroll/Maus-Hit-Test mit Scroll-Versatz, zweistufiger Prompt-Editor inkl. Tipp nur im
-   Editor-Stadium und Wheel/PAGEUP-PAGEDOWN-Clamp)). Aufruf:
+   Editor-Stadium und Wheel/PAGEUP-PAGEDOWN-Clamp), Phase-16-Seeding (Setup-Seed-Feld: Ziffern-Cap/Backspace, Confirm-Parsing mit Fallback auf None, identische Simulation bei gleichem Seed inkl. Stamm/Tiere, Menü-Anzeige des gespeicherten Seeds)). Aufruf:
   `python -m unittest discover -s tests`.
 - NixOS: `flake.nix` + `shell.nix` liefern Python+SDL-Umgebung;
   `install.sh` prüft → richtet ein → startet (robust, nicht interaktiv).

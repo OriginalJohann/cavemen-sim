@@ -17,6 +17,9 @@ def main(argv=None) -> int:
                         help="disable the LLM endpoint entirely")
     parser.add_argument("--debug-llm", action="store_true",
                         help="print every caveman's raw LLM reply into the terminal (debug mode)")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="world generation seed for reproducible world creation "
+                             "(also enterable on the GUI setup screen; empty/unset = random)")
     args = parser.parse_args(argv)
 
     try:
@@ -27,7 +30,7 @@ def main(argv=None) -> int:
 
     if args.headless is not None:
         from .simulation.game_loop import Simulation
-        sim = Simulation.new_world(cfg, slot=0, name="headless",
+        sim = Simulation.new_world(cfg, slot=0, name="headless", seed=args.seed,
                                    llm_enabled=not args.no_llm,
                                    llm_debug=args.debug_llm)
         for report in sim.run_headless(args.headless):

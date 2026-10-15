@@ -21,7 +21,9 @@ fortpflanzen oder ruhen.
 - **Dauerhaftes World-Slots-System:** bis zu drei Welten werden automatisch als JSON in
   `~/cavemen_welten/` gespeichert (Autosave + manueller Save per F5); die GUI beginnt mit
   einem Menü (Welt neu anlegen / laden / überschreiben) und optional einer Setup-Seite,
-  auf der Agenten-Roster (Name/Geschlecht/Alter/Prompt) manuell vorgegeben werden.
+  auf der Agenten-Roster (Name/Geschlecht/Alter/Prompt) manuell vorgegeben werden;
+  beim Start einer neuen Welt lässt sich zusätzlich ein **Seed** eingeben, um die
+  Welt-Generierung reproduzierbar zu machen (leer = frischer Zufallsseed).
 
 ## Voraussetzungen
 
@@ -70,6 +72,7 @@ Beide Kommandos aus dem **Repo-Root** ausführen – `config.yaml` und das Sim-P
 | `--headless TICKS` | Lauft N Ticks ohne GUI und beendet sich; druckt JSON-Reports pro Phase (ideal für Tests/Demos) |
 | `--no-llm` | LLM-Endpoint komplett deaktivieren (nur Fallback-Logik) |
 | `--debug-llm` | Druckt die rohe LLM-Antwort jedes Urzeitmenschen pro Entscheidung im Terminal aus (`[LLM-Debug] Name: Antwort -> Aktion`) – nützlich zum Debuggen von Prompts/Timeouts |
+| `--seed N` | Welt-Seed für reproducible Welt-Erzeugung (Headless-Modus; in der GUI zusätzlich im Setup-Bildschirm eingebar) |
 
 ## Steuerung in der GUI
 
@@ -92,5 +95,5 @@ Vertiefte Architektur-Doku: [`STRUCTURE.md`](STRUCTURE.md) · Projektregeln: [`A
 ## Tests
 
 ```bash
-python -m unittest discover -s tests   # 56 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence, Phase-15-GUI-Fixes (Sidebar-Vitals ohne Overlap, Setup-Scroll, zweistufiger Prompt-Editor), Pause-Menü
+python -m unittest discover -s tests   # 61 Tests: Welt, Save/Load, Regeln, Beeren, Fischfang, Konversationen/Prompt-Editor, LLM-Client (/v1-Fallback) inkl. Tick-Budget + --debug-llm, Config-Editor & -Persistence, Phase-15-GUI-Fixes (Sidebar-Vitals ohne Overlap, Setup-Scroll, zweistufiger Prompt-Editor), Pause-Menü, Phase-16-Seeding (Setup-Seed-Feld, Confirm-Parsing, reproducible Simulation pro Seed, Menü-Anzeige)
 ```

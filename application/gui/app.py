@@ -22,12 +22,14 @@ from ..simulation.game_loop import Simulation
 from ..world import save_load
 
 
-def _start_simulation(cfg, kind: str, slot, roster=None, llm_debug=False) -> tuple:
+def _start_simulation(cfg, kind: str, slot, roster=None, llm_debug=False, seed=None) -> tuple:
     """Create a Simulation for the menu action (new/overwrite/load).
 
     A non-empty `roster` spawns the manually entered tribe members instead of
     the legacy auto-generated tribe (backwards compatible default: None).
     `llm_debug` is forwarded from the --debug-llm CLI flag.
+    `seed` (optional int, user-entered on the setup screen) pins world generation
+    to be reproducible for testing; None keeps a fresh random seed as before.
     """
     llm_enabled = bool(cfg.get("gui.sim.llm", True))
     if kind == "load":
@@ -36,7 +38,7 @@ def _start_simulation(cfg, kind: str, slot, roster=None, llm_debug=False) -> tup
         return sim, slot
     # new or explicit overwrite: fresh world written into the chosen slot
     sim = Simulation.new_world(cfg, slot=slot, name=f"world_{slot}",
-                               llm_enabled=llm_enabled, llm_debug=llm_debug, roster=roster)
+                               llm_enabled=llm_enabled, llm_debug=llm_debug, roster=roster, seed=seed)
     save_load.save_world(sim.world, cfg, slot, force=(kind == "overwrite"))
     return sim, slot
 
@@ -124,7 +126,8 @@ def run(cfg, llm_debug: bool = False) -> None:
                 else:
                     try:
                         sim, slot = _start_simulation(cfg, result["kind"], result["slot"],
-                                                     roster=result["roster"], llm_debug=llm_debug)
+                                                     roster=result["roster"], llm_debug=llm_debug,
+                                                     seed=result.get("seed"))   # Phase 16: user-entered world seed
                         selected_uid = next((a.uid for a in sim.world.agents if a.alive), None)
                         state = "sim"
                     except Exception as exc:     # friendly feedback instead of traceback
